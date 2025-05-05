@@ -12,7 +12,7 @@ public class WorkbookRelsWriter : RelsWriter
 
     public static string Path { get; } = "xl/_rels/workbook.xml.rels";
 
-    protected override async Task WriteRelationshipELementsAsync()
+    protected override async Task WriteRelationshipElementsAsync()
     {
         await WriteRelationshipElementAsync(
             id: "rId1",

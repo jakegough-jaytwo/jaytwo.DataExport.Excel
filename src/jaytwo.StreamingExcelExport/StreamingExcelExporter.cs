@@ -48,18 +48,18 @@ public class StreamingExcelExporter<T>
             await new DotRelsWriter(writer).WriteAsync();
         }
 
-        var docProps = CreateFile(subfolder, AppPropertiesWriter.Path);
+        var docProps = CreateFile(subfolder, AppPropertiesWriter.PackagePath);
         using (var stream = docProps.Create())
         using (var writer = CreateXmlWriter(stream))
         {
-            await new AppPropertiesWriter(writer).WriteAsync("MyApplication", "0.1", "My Company");
+            await new AppPropertiesWriter(writer, "MyApplication", "0.1", "My Company").WriteAsync();
         }
 
         var coreProps = CreateFile(subfolder, CorePropertiesWriter.Path);
         using (var stream = coreProps.Create())
         using (var writer = CreateXmlWriter(stream))
         {
-            await new CorePropertiesWriter(writer).WriteAsync("John Doe");
+            await new CorePropertiesWriter(writer, "John Doe").WriteAsync();
         }
 
         var workbookRels = CreateFile(subfolder, WorkbookRelsWriter.Path);
@@ -73,7 +73,7 @@ public class StreamingExcelExporter<T>
         using (var stream = workbook.Create())
         using (var writer = CreateXmlWriter(stream))
         {
-            await new WorkbookWriter(writer).WriteAsync(sheetName);
+            await new WorkbookWriter(writer, sheetName).WriteAsync();
         }
 
         var contentTypes = CreateFile(subfolder, ContentTypesWriter.Path);
@@ -87,7 +87,7 @@ public class StreamingExcelExporter<T>
         using (var stream = worksheet.Create())
         using (var writer = CreateXmlWriter(stream))
         {
-            await new WorksheetWriter<T>(writer).WriteAsync(data, cancellationToken);
+            await new WorksheetWriter<T>(writer, data).WriteAsync();
         }
 
         var xlsxFile = workspace.GetFullPath("foo.xlsx");

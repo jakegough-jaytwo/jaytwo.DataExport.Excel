@@ -12,9 +12,8 @@ public class ContentTypesWriter : XmlDocumentWriter
 
     public static string Path { get; } = "[Content_Types].xml";
 
-    public async Task WriteAsync()
+    protected override async Task WriteRootElementAsync()
     {
-        await using (await CreateDocumentScopeAsync(standalone: true))
         await using (CreateElementScope("Types", "http://schemas.openxmlformats.org/package/2006/content-types"))
         {
             await WriteDefaultElementAsync(extension: "rels", contentType: "application/vnd.openxmlformats-package.relationships+xml");

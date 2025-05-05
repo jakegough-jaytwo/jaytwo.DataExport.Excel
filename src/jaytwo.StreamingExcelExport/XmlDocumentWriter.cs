@@ -14,6 +14,19 @@ public abstract class XmlDocumentWriter
 
     protected XmlWriter Writer { get; }
 
+    public async Task WriteAsync()
+    {
+        await using (await CreateDocumentElementScope())
+        {
+            await WriteRootElementAsync();
+        }
+    }
+
+    protected virtual async Task<XmlDocumentScope> CreateDocumentElementScope()
+        => await CreateDocumentScopeAsync(standalone: true);
+
+    protected abstract Task WriteRootElementAsync();
+
     protected async Task WriteElementWithAttributes(string elementName, Dictionary<string, string> attributes)
     {
         await using (CreateElementScope(elementName))

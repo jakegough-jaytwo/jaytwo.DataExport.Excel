@@ -12,7 +12,7 @@ public class DotRelsWriter : RelsWriter
 
     public static string Path { get; } = "_rels/.rels";
 
-    protected override async Task WriteRelationshipELementsAsync()
+    protected override async Task WriteRelationshipElementsAsync()
     {
         await WriteRelationshipElementAsync(
             id: "rId3",

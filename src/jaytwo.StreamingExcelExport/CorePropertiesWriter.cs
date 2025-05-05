@@ -11,22 +11,37 @@ public class CorePropertiesWriter : XmlDocumentWriter
     private const string XSINamespace = "http://www.w3.org/2001/XMLSchema-instance";
     private const string DCTermsNamespace = "http://purl.org/dc/terms/";
 
-    public CorePropertiesWriter(XmlWriter writer)
+    public CorePropertiesWriter(XmlWriter writer, string creator)
+        : this(writer, creator, DateTime.UtcNow)
+    {
+    }
+
+    public CorePropertiesWriter(XmlWriter writer, string creator, DateTime createdUtc)
+        : this(writer, creator, creator, createdUtc, createdUtc)
+    {
+    }
+
+    public CorePropertiesWriter(XmlWriter writer, string creator, string lastModifiedBy, DateTime createdUtc, DateTime modifiedUtc)
         : base(writer)
     {
+        Creator = creator;
+        LastModifiedBy = lastModifiedBy;
+        CreatedUtc = createdUtc;
+        ModifiedUtc = modifiedUtc;
     }
 
     public static string Path { get; } = "docProps/core.xml";
 
-    public async Task WriteAsync(string creator)
-        => await WriteAsync(creator, DateTime.UtcNow);
+    public string Creator { get; }
 
-    public async Task WriteAsync(string creator, DateTime createdUtc)
-        => await WriteAsync(creator, creator, createdUtc, createdUtc);
+    public string LastModifiedBy { get; }
 
-    public async Task WriteAsync(string creator, string lastModifiedBy, DateTime createdUtc, DateTime modifiedUtc)
+    public DateTime CreatedUtc { get; }
+
+    public DateTime ModifiedUtc { get; }
+
+    protected override async Task WriteRootElementAsync()
     {
-        await using (await CreateDocumentScopeAsync(standalone: true))
         await using (CreateElementScope("cp", "coreProperties", CPNamespace))
         {
             WriteAttributeString("xmlns", "dc", null, DCNamespace);
@@ -34,11 +49,11 @@ public class CorePropertiesWriter : XmlDocumentWriter
             WriteAttributeString("xmlns", "dcmitype", null, "http://purl.org/dc/dcmitype/");
             WriteAttributeString("xmlns", "xsi", null, XSINamespace);
 
-            await WriteElementStringAsync("dc", "creator", DCNamespace, creator);
-            await WriteElementStringAsync("cp", "lastModifiedBy", CPNamespace, lastModifiedBy);
+            await WriteElementStringAsync("dc", "creator", DCNamespace, Creator);
+            await WriteElementStringAsync("cp", "lastModifiedBy", CPNamespace, LastModifiedBy);
 
-            await WriteDateAsync("created", createdUtc);
-            await WriteDateAsync("modified", modifiedUtc);
+            await WriteDateAsync("created", CreatedUtc);
+            await WriteDateAsync("modified", ModifiedUtc);
         }
     }
 

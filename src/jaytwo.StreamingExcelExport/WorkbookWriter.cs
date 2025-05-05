@@ -7,16 +7,18 @@ public class WorkbookWriter : XmlDocumentWriter
 {
     private const string RelationshipsNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
-    public WorkbookWriter(XmlWriter writer)
+    public WorkbookWriter(XmlWriter writer, string sheetName)
         : base(writer)
     {
+        SheetName = sheetName;
     }
 
     public static string Path { get; } = "xl/workbook.xml";
 
-    public async Task WriteAsync(string sheetName = "Sheet1")
+    public string SheetName { get; }
+
+    protected override async Task WriteRootElementAsync()
     {
-        await using (await CreateDocumentScopeAsync(standalone: true))
         await using (CreateElementScope("workbook", "http://schemas.openxmlformats.org/spreadsheetml/2006/main"))
         {
             WriteAttributeString("xmlns", "r", null, RelationshipsNamespace);
@@ -30,7 +32,7 @@ public class WorkbookWriter : XmlDocumentWriter
 
             await using (CreateElementScope("sheets"))
             {
-                await WriteSheetElementAsync(name: sheetName, sheetId: "1", rid: "rId1");
+                await WriteSheetElementAsync(name: SheetName, sheetId: "1", rid: "rId1");
             }
         }
     }

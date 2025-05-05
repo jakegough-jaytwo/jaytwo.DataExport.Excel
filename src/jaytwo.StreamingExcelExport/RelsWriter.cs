@@ -10,16 +10,15 @@ public abstract class RelsWriter : XmlDocumentWriter
     {
     }
 
-    public async Task WriteAsync()
+    protected override async Task WriteRootElementAsync()
     {
-        await using (await CreateDocumentScopeAsync(standalone: true))
-        using (CreateElementScope("Relationships", "http://schemas.openxmlformats.org/package/2006/relationships"))
+        await using (CreateElementScope("Relationships", "http://schemas.openxmlformats.org/package/2006/relationships"))
         {
-            await WriteRelationshipELementsAsync();
+            await WriteRelationshipElementsAsync();
         }
     }
 
-    protected abstract Task WriteRelationshipELementsAsync();
+    protected abstract Task WriteRelationshipElementsAsync();
 
     protected async Task WriteRelationshipElementAsync(string id, string type, string target)
         => await WriteElementWithAttributes("Relationship", new() { { "Id", id }, { "Type", type }, { "Target", target } });

@@ -7,21 +7,29 @@ public class AppPropertiesWriter : XmlDocumentWriter
 {
     private const string VTNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes";
 
-    public AppPropertiesWriter(XmlWriter writer)
+    public AppPropertiesWriter(XmlWriter writer, string application, string appVersion, string company)
         : base(writer)
     {
+        Application = application;
+        AppVersion = appVersion;
+        Company = company;
     }
 
-    public static string Path { get; } = "docProps/app.xml";
+    public static string PackagePath { get; } = "docProps/app.xml";
 
-    public async Task WriteAsync(string application, string appVersion, string company)
+    public string Application { get; }
+
+    public string AppVersion { get; }
+
+    public string Company { get; }
+
+    protected override async Task WriteRootElementAsync()
     {
-        await using (await CreateDocumentScopeAsync(standalone: true))
         await using (CreateElementScope("Properties", "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"))
         {
             WriteAttributeString("xmlns", "vt", null, VTNamespace);
 
-            WriteElementString("Application", application);
+            WriteElementString("Application", Application);
             WriteElementString("DocSecurity", "0");
             WriteElementString("ScaleCrop", "false");
 
@@ -55,11 +63,11 @@ public class AppPropertiesWriter : XmlDocumentWriter
                 }
             }
 
-            WriteElementString("Company", company);
+            WriteElementString("Company", Company);
             WriteElementString("LinksUpToDate", "false");
             WriteElementString("SharedDoc", "false");
             WriteElementString("HyperlinksChanged", "false");
-            WriteElementString("AppVersion", appVersion);
+            WriteElementString("AppVersion", AppVersion);
         }
     }
 }
