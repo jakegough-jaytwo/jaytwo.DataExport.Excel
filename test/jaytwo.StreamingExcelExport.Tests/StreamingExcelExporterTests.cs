@@ -34,10 +34,12 @@ public class StreamingExcelExporterTests
         };
 
         using var memoryStream = new MemoryStream();
-        var exporter = new StreamingExcelExporter<Person>();
+        using (var exporter = new StreamingExcelExporter(memoryStream))
+        {
+            // Act
+            await exporter.WriteSheetAsync(people);
+        }
 
-        // Act
-        await exporter.WriteDataAsync(memoryStream, people);
         memoryStream.Position = 0; // Reset to beginning for reading
 
         // Assert
@@ -78,10 +80,11 @@ public class StreamingExcelExporterTests
         using var temp = DisappearingDirectory.CreateInTempPath();
         var tempFile = temp.CreateNewFile("people.xlsx");
         using var fileStream = new DisappearingFileStream(tempFile, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
-        var exporter = new StreamingExcelExporter<Person>();
-
-        // Act
-        await exporter.WriteDataAsync(fileStream, peopleEnumerable);
+        using (var exporter = new StreamingExcelExporter(fileStream))
+        {
+            // Act
+            await exporter.WriteSheetAsync(peopleEnumerable);
+        }
 
         // Assert
 

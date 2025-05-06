@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.Writers.Xml;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.Writers;
 
 public abstract class XmlDocumentWriter
 {

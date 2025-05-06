@@ -2,155 +2,84 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-using jaytwo.DisappearingFiles;
+using jaytwo.StreamingExcelExport.Writers;
 
 namespace jaytwo.StreamingExcelExport;
 
-public class StreamingExcelExporter<T>
+public class StreamingExcelExporter : IDisposable, IAsyncDisposable
 {
     private const string DefaultSheetName = "Sheet1";
 
-    private readonly IList<PropertyInfo> _props;
+    private ZipWriter _zip;
+    private RelationshipIndex _relationships;
+    private WorksheetIndex _sheetsIndex;
 
-    public StreamingExcelExporter()
-    {
-        _props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-    }
-
-    public async ValueTask WriteDataAsync(
-        string filePath,
-        IAsyncEnumerable<T> data,
-        string sheetName = DefaultSheetName,
-        CancellationToken cancellationToken = default)
-    {
-        using var outputStream = File.OpenWrite(filePath);
-        await WriteDataAsync(outputStream, data, sheetName, cancellationToken);
-    }
-
-    public async ValueTask WriteDataAsync(
+    public StreamingExcelExporter(
         Stream outputStream,
+        string applicationName = "MyApplication",
+        string applicationVersion = "1.0",
+        string companyName = "My Company",
+        string createdBy = "Me",
+        DateTime? createdAtUtc = default,
+        bool leaveInnerStreamOpen = true)
+    {
+        _zip = new ZipWriter(outputStream, leaveOpen: leaveInnerStreamOpen);
+        _relationships = new RelationshipIndex();
+        _sheetsIndex = new WorksheetIndex(_relationships);
+
+        OutputStream = outputStream;
+        ApplicationName = applicationName;
+        ApplicationVersion = applicationVersion;
+        CompanyName = companyName;
+        Creator = createdBy;
+        CreatedAtUtc = createdAtUtc ?? DateTime.UtcNow;
+    }
+
+    public Stream OutputStream { get; }
+
+    public string ApplicationName { get; }
+
+    public string ApplicationVersion { get; }
+
+    public string CompanyName { get; }
+
+    public string Creator { get; }
+
+    public DateTime CreatedAtUtc { get; }
+
+    public async Task WriteSheetAsync<T>(
+        IEnumerable<T> data,
+        string sheetName = DefaultSheetName,
+        CancellationToken cancellationToken = default)
+        => await WriteSheetAsync(ToAsyncEnumerable(data, cancellationToken), sheetName, cancellationToken);
+
+    public async Task WriteSheetAsync<T>(
         IAsyncEnumerable<T> data,
         string sheetName = DefaultSheetName,
         CancellationToken cancellationToken = default)
     {
-        using var workspace = DisappearingDirectory.CreateInTempPath();
-        var subfolder = workspace.CreateNewSubdirectory("xlsx");
-
-        var dotRels = CreateFile(subfolder, DotRelsWriter.Path);
-        using (var stream = dotRels.Create())
-        using (var writer = CreateXmlWriter(stream))
-        {
-            await new DotRelsWriter(writer).WriteAsync();
-        }
-
-        var docProps = CreateFile(subfolder, AppPropertiesWriter.PackagePath);
-        using (var stream = docProps.Create())
-        using (var writer = CreateXmlWriter(stream))
-        {
-            await new AppPropertiesWriter(writer, "MyApplication", "0.1", "My Company").WriteAsync();
-        }
-
-        var coreProps = CreateFile(subfolder, CorePropertiesWriter.Path);
-        using (var stream = coreProps.Create())
-        using (var writer = CreateXmlWriter(stream))
-        {
-            await new CorePropertiesWriter(writer, "John Doe").WriteAsync();
-        }
-
-        var workbookRels = CreateFile(subfolder, WorkbookRelsWriter.Path);
-        using (var stream = workbookRels.Create())
-        using (var writer = CreateXmlWriter(stream))
-        {
-            await new WorkbookRelsWriter(writer).WriteAsync();
-        }
-
-        var workbook = CreateFile(subfolder, WorkbookWriter.Path);
-        using (var stream = workbook.Create())
-        using (var writer = CreateXmlWriter(stream))
-        {
-            await new WorkbookWriter(writer, sheetName).WriteAsync();
-        }
-
-        var contentTypes = CreateFile(subfolder, ContentTypesWriter.Path);
-        using (var stream = contentTypes.Create())
-        using (var writer = CreateXmlWriter(stream))
-        {
-            await new ContentTypesWriter(writer).WriteAsync();
-        }
-
-        var worksheet = CreateFile(subfolder, WorksheetWriter<T>.Path);
-        using (var stream = worksheet.Create())
-        using (var writer = CreateXmlWriter(stream))
-        {
-            await new WorksheetWriter<T>(writer, data).WriteAsync();
-        }
-
-        var xlsxFile = workspace.GetFullPath("foo.xlsx");
-        ZipHelper.CreateZipFromFolder(subfolder.FullName, xlsxFile);
-        using (var file = File.OpenRead(xlsxFile))
-        {
-            await file.CopyToAsync(outputStream);
-        }
+        var sheetSpec = _sheetsIndex.Add(sheetName);
+        await WriteAsync(new WorksheetWriterContext<T>(sheetSpec.SheetTag, data), cancellationToken);
     }
 
-    public FileInfo CreateFile(DirectoryInfo subfolder, string relativePath)
+    public async ValueTask DisposeAsync()
     {
-        var parts = relativePath.Replace("\\", "/").Split("/");
-        var folders = parts.Take(parts.Length - 1);
-        var file = parts.Last();
-
-        var progressivePath = string.Empty;
-        foreach (var folder in folders)
-        {
-            progressivePath = Path.Combine(progressivePath, folder);
-            var fullPath = Path.Combine(subfolder.FullName, progressivePath);
-            if (!Directory.Exists(fullPath))
-            {
-                Directory.CreateDirectory(fullPath);
-            }
-        }
-
-        return new FileInfo(Path.Combine(subfolder.FullName, relativePath));
+        await WriteFinishAsync();
+        await _zip.DisposeAsync();
     }
 
-    public async Task WriteDataAsync(
-        string filePath,
-        IEnumerable<T> data,
-        string sheetName = DefaultSheetName,
-        CancellationToken cancellationToken = default)
-        => await WriteDataAsync(filePath, ToAsyncEnumerable(data), sheetName);
-
-    public async Task WriteDataAsync(
-        Stream stream,
-        IEnumerable<T> data,
-        string sheetName = DefaultSheetName,
-        CancellationToken cancellationToken = default)
-        => await WriteDataAsync(stream, ToAsyncEnumerable(data), sheetName);
-
-    private static XmlWriter CreateXmlWriter(Stream outputStream)
+    public void Dispose()
     {
-        var settings = new XmlWriterSettings
-        {
-            //Indent = true,
-            Indent = false,
-            Encoding = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
-            OmitXmlDeclaration = false,
-            Async = true,
-        };
-
-        return XmlWriter.Create(outputStream, settings);
+        WriteFinishAsync(CancellationToken.None).ConfigureAwait(false).GetAwaiter().GetResult();
+        _zip.Dispose();
     }
 
-    private static async IAsyncEnumerable<TElement> ToAsyncEnumerable<TElement>(
-        IEnumerable<TElement> source,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    private static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(IEnumerable<T> source, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await Task.CompletedTask;
         foreach (var item in source)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -159,4 +88,56 @@ public class StreamingExcelExporter<T>
             await Task.Yield(); // ensures it's really async
         }
     }
+
+    private async ValueTask WriteFinishAsync(CancellationToken cancellationToken = default)
+    {
+        await WriteAsync(new DotRelsWriterContext(), cancellationToken);
+        await WriteAsync(BuildCorePropertiesWriterContext(), cancellationToken);
+        await WriteAsync(BuildWorkbookRelsWriterContext(), cancellationToken);
+        await WriteAsync(BuildWorkbookWriterContext(), cancellationToken);
+        await WriteAsync(BuildContentTypesWriterContext(), cancellationToken);
+        await WriteAsync(BuildAppPropertiesWriterContext(), cancellationToken);
+    }
+
+    private async Task WriteAsync(IWriterContext context, CancellationToken cancellationToken)
+    {
+        var settings = new XmlWriterSettings
+        {
+            Indent = true,
+            Encoding = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            OmitXmlDeclaration = false,
+            Async = true,
+            CloseOutput = false,
+        };
+
+        await _zip.WriteFileAsync(
+            fileName: context.ZipPackagePath,
+            comment: string.Empty,
+            writeFileCallback: async stream =>
+            {
+                using (var writer = XmlWriter.Create(stream, settings))
+                {
+                    await context.WriteAsync(writer, cancellationToken);
+                }
+            });
+    }
+
+    private ExtendedPropertiesWriterContext BuildAppPropertiesWriterContext()
+        => new(
+            application: ApplicationName,
+            appVersion: ApplicationVersion,
+            company: CompanyName,
+            sheetNames: _sheetsIndex.SheetNames);
+
+    private WorkbookWriterContext BuildWorkbookWriterContext()
+        => new(_sheetsIndex.Sheets);
+
+    private ContentTypesWriterContext BuildContentTypesWriterContext()
+        => new(_sheetsIndex.SheetTags);
+
+    private WorkbookRelationshipsWriterContext BuildWorkbookRelsWriterContext()
+        => new(_relationships.Relationshnips);
+
+    private CorePropertiesWriterContext BuildCorePropertiesWriterContext()
+        => new(Creator, CreatedAtUtc);
 }

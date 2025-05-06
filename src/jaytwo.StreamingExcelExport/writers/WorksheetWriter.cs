@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.Writers;
 
 public class WorksheetWriter<T> : XmlDocumentWriter
 {
@@ -17,16 +17,14 @@ public class WorksheetWriter<T> : XmlDocumentWriter
 
     private readonly IList<PropertyInfo> _props;
 
-    public WorksheetWriter(XmlWriter writer, IAsyncEnumerable<T> data)
+    public WorksheetWriter(WorksheetWriterContext<T> context, XmlWriter writer)
         : base(writer)
     {
         _props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        Data = data;
+        Context = context;
     }
 
-    public static string Path { get; } = "xl/worksheets/sheet1.xml";
-
-    public IAsyncEnumerable<T> Data { get; }
+    public WorksheetWriterContext<T> Context { get; }
 
     internal static string ToExcelColumnName(int columnNumber)
     {
@@ -64,7 +62,7 @@ public class WorksheetWriter<T> : XmlDocumentWriter
             await using (CreateElementScope("sheetData"))
             {
                 int rowNumber = 1;
-                await foreach (var itemValues in GetCellData(Data, writeHeader: true))
+                await foreach (var itemValues in GetCellData(Context.Data, writeHeader: true))
                 {
                     await WriteRowElementAsync(rowNumber++, itemValues);
                     //await FlushAsync();

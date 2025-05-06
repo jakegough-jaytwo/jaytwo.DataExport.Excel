@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using System.Xml;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.Writers.Xml;
 
 public class XmlDocumentScope : IDisposable, IAsyncDisposable
 {

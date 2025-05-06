@@ -1,16 +1,17 @@
 using System.Threading.Tasks;
 using System.Xml;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.Writers;
 
 public class ContentTypesWriter : XmlDocumentWriter
 {
-    public ContentTypesWriter(XmlWriter writer)
+    public ContentTypesWriter(ContentTypesWriterContext context, XmlWriter writer)
         : base(writer)
     {
+        Context = context;
     }
 
-    public static string Path { get; } = "[Content_Types].xml";
+    public ContentTypesWriterContext Context { get; }
 
     protected override async Task WriteRootElementAsync()
     {
@@ -20,7 +21,12 @@ public class ContentTypesWriter : XmlDocumentWriter
             await WriteDefaultElementAsync(extension: "xml", contentType: "application/xml");
 
             await WriteOverrideElementAsync(partName: "/xl/workbook.xml", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml");
-            await WriteOverrideElementAsync(partName: "/xl/worksheets/sheet1.xml", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml");
+
+            foreach (var sheetTag in Context.SheetTags)
+            {
+                await WriteOverrideElementAsync(partName: $"/xl/worksheets/{sheetTag}.xml", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml");
+            }
+
             await WriteOverrideElementAsync(partName: "/docProps/core.xml", contentType: "application/vnd.openxmlformats-package.core-properties+xml");
             await WriteOverrideElementAsync(partName: "/docProps/app.xml", contentType: "application/vnd.openxmlformats-officedocument.extended-properties+xml");
         }

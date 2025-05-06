@@ -7,6 +7,7 @@
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="jaytwo.DisappearingFiles" Version="0.1.1" />
+    <PackageReference Include="jaytwo.HashSiphon" Version="0.1.0-beta-20250505183914" />
+    <PackageReference Include="Crc32.NET" Version="1.2.0" />
   </ItemGroup>
 </Project>

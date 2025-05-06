@@ -1,16 +1,17 @@
 using System.Threading.Tasks;
 using System.Xml;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.Writers;
 
-public class DotRelsWriter : RelsWriter
+public class DotRelsWriter : RelationshipsWriter
 {
-    public DotRelsWriter(XmlWriter writer)
+    public DotRelsWriter(DotRelsWriterContext context, XmlWriter writer)
         : base(writer)
     {
+        Context = context;
     }
 
-    public static string Path { get; } = "_rels/.rels";
+    public DotRelsWriterContext Context { get; }
 
     protected override async Task WriteRelationshipElementsAsync()
     {

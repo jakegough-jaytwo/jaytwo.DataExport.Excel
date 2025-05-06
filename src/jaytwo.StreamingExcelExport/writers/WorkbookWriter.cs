@@ -1,21 +1,19 @@
 using System.Threading.Tasks;
 using System.Xml;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.Writers;
 
 public class WorkbookWriter : XmlDocumentWriter
 {
     private const string RelationshipsNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
-    public WorkbookWriter(XmlWriter writer, string sheetName)
+    public WorkbookWriter(WorkbookWriterContext context, XmlWriter writer)
         : base(writer)
     {
-        SheetName = sheetName;
+        Context = context;
     }
 
-    public static string Path { get; } = "xl/workbook.xml";
-
-    public string SheetName { get; }
+    public WorkbookWriterContext Context { get; }
 
     protected override async Task WriteRootElementAsync()
     {
@@ -32,7 +30,10 @@ public class WorkbookWriter : XmlDocumentWriter
 
             await using (CreateElementScope("sheets"))
             {
-                await WriteSheetElementAsync(name: SheetName, sheetId: "1", rid: "rId1");
+                foreach (var sheet in Context.Sheets)
+                {
+                    await WriteSheetElementAsync(name: sheet.SheetName, sheetId: sheet.SheetId, rid: sheet.RelationshipId);
+                }
             }
         }
     }

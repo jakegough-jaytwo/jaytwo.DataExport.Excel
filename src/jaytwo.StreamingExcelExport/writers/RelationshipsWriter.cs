@@ -1,11 +1,11 @@
 using System.Threading.Tasks;
 using System.Xml;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.Writers;
 
-public abstract class RelsWriter : XmlDocumentWriter
+public abstract class RelationshipsWriter : XmlDocumentWriter
 {
-    public RelsWriter(XmlWriter writer)
+    public RelationshipsWriter(XmlWriter writer)
         : base(writer)
     {
     }
