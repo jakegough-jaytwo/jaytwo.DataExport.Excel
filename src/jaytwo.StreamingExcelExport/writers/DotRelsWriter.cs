@@ -1,9 +1,10 @@
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class DotRelsWriter : RelationshipsWriter
+internal class DotRelsWriter : RelationshipsWriter
 {
     public DotRelsWriter(DotRelsWriterContext context, XmlWriter writer)
         : base(writer)

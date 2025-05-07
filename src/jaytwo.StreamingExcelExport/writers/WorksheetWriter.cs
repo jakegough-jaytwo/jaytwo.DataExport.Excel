@@ -1,15 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.Writers.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class WorksheetWriter<T> : XmlDocumentWriter
+internal class WorksheetWriter<T> : XmlDocumentWriter
 {
     private const string XRNamespace = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision";
     private const string RNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -26,7 +28,7 @@ public class WorksheetWriter<T> : XmlDocumentWriter
 
     public WorksheetWriterContext<T> Context { get; }
 
-    internal static string ToExcelColumnName(int columnNumber)
+    public static string ToExcelColumnName(int columnNumber)
     {
         if (columnNumber < 1)
         {
@@ -45,7 +47,26 @@ public class WorksheetWriter<T> : XmlDocumentWriter
         return columnName;
     }
 
-    protected override async Task WriteRootElementAsync()
+    public static double? ToExcelSerialDate(DateTime? date)
+        => (date == null) ? null : ToExcelSerialDate(date.Value);
+
+    public static double ToExcelSerialDate(DateTime date)
+    {
+        var baseDate = new DateTime(1899, 12, 31); // Excel's day 1 = Jan 1, 1900
+
+        var serial = (date - baseDate).TotalDays;
+
+        // Excel incorrectly includes Feb 29, 1900, which didn't exist
+        // So for any date >= Mar 1, 1900, add 1 to compensate
+        if (date >= new DateTime(1900, 3, 1))
+        {
+            serial += 1;
+        }
+
+        return serial;
+    }
+
+    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
     {
         await using (CreateElementScope("worksheet", "http://schemas.openxmlformats.org/spreadsheetml/2006/main"))
         {
@@ -62,10 +83,9 @@ public class WorksheetWriter<T> : XmlDocumentWriter
             await using (CreateElementScope("sheetData"))
             {
                 int rowNumber = 1;
-                await foreach (var itemValues in GetCellData(Context.Data, writeHeader: true))
+                await foreach (var itemValues in GetCellData(Context.Data, writeHeader: Context.IncludeHeader).WithCancellation(cancellationToken))
                 {
                     await WriteRowElementAsync(rowNumber++, itemValues);
-                    //await FlushAsync();
                 }
             }
         }
@@ -105,20 +125,52 @@ public class WorksheetWriter<T> : XmlDocumentWriter
 
     private async Task WriteCellElementAsync(string cell, object value)
     {
+        FormatObject(value, out var formattedValue, out var type);
+
         await using (CreateElementScope("c"))
         {
             WriteAttributeString("r", cell);
-            WriteAttributeString("t", "str");
+            WriteAttributeString("t", type);
 
-            await WriteValueElementAsync(value);
+            await using (CreateElementScope("v"))
+            {
+                Writer.WriteValue(formattedValue);
+            }
         }
     }
 
-    private async Task WriteValueElementAsync(object value)
+    private void FormatObject(object value, out string result, out string type)
     {
-        await using (CreateElementScope("v"))
+        if (value is string asString)
         {
-            Writer.WriteValue($"{value}");
+            type = Types.String;
+            result = asString;
         }
+        else if (value is int asInt)
+        {
+            type = Types.Numeric;
+            result = asInt.ToString(CultureInfo.InvariantCulture);
+        }
+        else if (value is double asDouble)
+        {
+            type = Types.Numeric;
+            result = asDouble.ToString(CultureInfo.InvariantCulture);
+        }
+        else if (value is DateTime asDateTime)
+        {
+            type = Types.Numeric;
+            result = ToExcelSerialDate(asDateTime).ToString(CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            type = Types.String;
+            result = $"{value}";
+        }
+    }
+
+    public class Types
+    {
+        public const string String = "str";
+        public const string Numeric = "n";
     }
 }

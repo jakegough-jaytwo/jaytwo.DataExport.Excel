@@ -1,10 +1,12 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.Writers.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class CorePropertiesWriter : XmlDocumentWriter
+internal class CorePropertiesWriter : XmlDocumentWriter
 {
     public CorePropertiesWriter(XmlWriter writer, string creator)
         : this(writer, creator, DateTime.UtcNow)
@@ -33,7 +35,7 @@ public class CorePropertiesWriter : XmlDocumentWriter
 
     public DateTime ModifiedUtc { get; }
 
-    protected override async Task WriteRootElementAsync()
+    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
     {
         await using (CreateElementScope("cp", "coreProperties", Namespaces.cp))
         {

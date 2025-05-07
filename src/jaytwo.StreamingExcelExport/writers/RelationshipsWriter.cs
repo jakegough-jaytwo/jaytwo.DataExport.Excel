@@ -1,16 +1,18 @@
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.Writers.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public abstract class RelationshipsWriter : XmlDocumentWriter
+internal abstract class RelationshipsWriter : XmlDocumentWriter
 {
     public RelationshipsWriter(XmlWriter writer)
         : base(writer)
     {
     }
 
-    protected override async Task WriteRootElementAsync()
+    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
     {
         await using (CreateElementScope("Relationships", "http://schemas.openxmlformats.org/package/2006/relationships"))
         {

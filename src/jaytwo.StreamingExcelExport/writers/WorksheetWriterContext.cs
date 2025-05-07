@@ -6,7 +6,7 @@ using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class WorksheetWriterContext<T> : IWriterContext
+internal class WorksheetWriterContext<T> : IWriterContext
 {
     public WorksheetWriterContext(string sheetTag, IAsyncEnumerable<T> data)
     {
@@ -18,8 +18,10 @@ public class WorksheetWriterContext<T> : IWriterContext
 
     public string SheetTag { get; set; }
 
+    public bool IncludeHeader { get; set; } = true;
+
     public IAsyncEnumerable<T> Data { get; set; }
 
     public async Task WriteAsync(XmlWriter writer, CancellationToken cancellationToken)
-        => await new WorksheetWriter<T>(this, writer).WriteAsync();
+        => await new WorksheetWriter<T>(this, writer).WriteAsync(cancellationToken);
 }

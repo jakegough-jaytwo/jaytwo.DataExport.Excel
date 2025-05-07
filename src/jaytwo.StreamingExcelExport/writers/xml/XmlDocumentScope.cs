@@ -4,7 +4,7 @@ using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers.Xml;
 
-public class XmlDocumentScope : IDisposable, IAsyncDisposable
+internal class XmlDocumentScope : IDisposable, IAsyncDisposable
 {
     private readonly XmlWriter _writer;
 

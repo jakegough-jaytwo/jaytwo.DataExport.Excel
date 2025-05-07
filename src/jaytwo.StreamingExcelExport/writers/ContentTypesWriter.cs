@@ -1,9 +1,11 @@
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.Writers.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class ContentTypesWriter : XmlDocumentWriter
+internal class ContentTypesWriter : XmlDocumentWriter
 {
     public ContentTypesWriter(ContentTypesWriterContext context, XmlWriter writer)
         : base(writer)
@@ -13,7 +15,7 @@ public class ContentTypesWriter : XmlDocumentWriter
 
     public ContentTypesWriterContext Context { get; }
 
-    protected override async Task WriteRootElementAsync()
+    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
     {
         await using (CreateElementScope("Types", "http://schemas.openxmlformats.org/package/2006/content-types"))
         {

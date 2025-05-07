@@ -1,10 +1,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.OpenXml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class WorkbookWriterContext : IWriterContext
+internal class WorkbookWriterContext : IWriterContext
 {
     public WorkbookWriterContext(WorksheetSpec[] sheets)
     {
@@ -16,5 +17,5 @@ public class WorkbookWriterContext : IWriterContext
     public WorksheetSpec[] Sheets { get; }
 
     public async Task WriteAsync(XmlWriter writer, CancellationToken cancellationToken)
-        => await new WorkbookWriter(this, writer).WriteAsync();
+        => await new WorkbookWriter(this, writer).WriteAsync(cancellationToken);
 }

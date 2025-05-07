@@ -1,11 +1,11 @@
-using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.Writers.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class ExtendedPropertiesWriter : XmlDocumentWriter
+internal class ExtendedPropertiesWriter : XmlDocumentWriter
 {
     public ExtendedPropertiesWriter(ExtendedPropertiesWriterContext context, XmlWriter writer)
         : base(writer)
@@ -15,7 +15,7 @@ public class ExtendedPropertiesWriter : XmlDocumentWriter
 
     public ExtendedPropertiesWriterContext Context { get; }
 
-    protected override async Task WriteRootElementAsync()
+    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
     {
         await using (CreateElementScope("Properties", "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"))
         {

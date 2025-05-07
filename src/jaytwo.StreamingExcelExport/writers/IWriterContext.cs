@@ -4,7 +4,7 @@ using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public interface IWriterContext
+internal interface IWriterContext
 {
     string ZipPackagePath { get; }
 

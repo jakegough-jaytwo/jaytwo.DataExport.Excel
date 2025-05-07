@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.OpenXml;
 using jaytwo.StreamingExcelExport.Writers;
+using jaytwo.StreamingExcelExport.Zip;
 
 namespace jaytwo.StreamingExcelExport;
 
@@ -14,7 +15,7 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
 {
     private const string DefaultSheetName = "Sheet1";
 
-    private ZipWriter _zip;
+    private IZipWriter _zip;
     private RelationshipIndex _relationships;
     private WorksheetIndex _sheetsIndex;
 
@@ -25,9 +26,10 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
         string companyName = "My Company",
         string createdBy = "Me",
         DateTime? createdAtUtc = default,
+        bool useZip64 = true,
         bool leaveInnerStreamOpen = true)
     {
-        _zip = new ZipWriter(outputStream, leaveOpen: leaveInnerStreamOpen);
+        _zip = ZipWriter.Create(outputStream, leaveOpen: leaveInnerStreamOpen, useZip64: useZip64);
         _relationships = new RelationshipIndex();
         _sheetsIndex = new WorksheetIndex(_relationships);
 
@@ -92,11 +94,12 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
     private async ValueTask WriteFinishAsync(CancellationToken cancellationToken = default)
     {
         await WriteAsync(new DotRelsWriterContext(), cancellationToken);
-        await WriteAsync(BuildCorePropertiesWriterContext(), cancellationToken);
-        await WriteAsync(BuildWorkbookRelsWriterContext(), cancellationToken);
-        await WriteAsync(BuildWorkbookWriterContext(), cancellationToken);
-        await WriteAsync(BuildContentTypesWriterContext(), cancellationToken);
+        await WriteAsync(new CorePropertiesWriterContext(Creator, CreatedAtUtc), cancellationToken);
+        await WriteAsync(new WorkbookRelationshipsWriterContext(_relationships.Relationshnips), cancellationToken);
+        await WriteAsync(new WorkbookWriterContext(_sheetsIndex.Sheets), cancellationToken);
+        await WriteAsync(new ContentTypesWriterContext(_sheetsIndex.SheetTags), cancellationToken);
         await WriteAsync(BuildAppPropertiesWriterContext(), cancellationToken);
+        await OutputStream.FlushAsync(cancellationToken);
     }
 
     private async Task WriteAsync(IWriterContext context, CancellationToken cancellationToken)
@@ -128,16 +131,4 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
             appVersion: ApplicationVersion,
             company: CompanyName,
             sheetNames: _sheetsIndex.SheetNames);
-
-    private WorkbookWriterContext BuildWorkbookWriterContext()
-        => new(_sheetsIndex.Sheets);
-
-    private ContentTypesWriterContext BuildContentTypesWriterContext()
-        => new(_sheetsIndex.SheetTags);
-
-    private WorkbookRelationshipsWriterContext BuildWorkbookRelsWriterContext()
-        => new(_relationships.Relationshnips);
-
-    private CorePropertiesWriterContext BuildCorePropertiesWriterContext()
-        => new(Creator, CreatedAtUtc);
 }

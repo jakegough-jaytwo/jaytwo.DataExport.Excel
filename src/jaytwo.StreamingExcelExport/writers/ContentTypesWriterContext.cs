@@ -4,7 +4,7 @@ using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class ContentTypesWriterContext : IWriterContext
+internal class ContentTypesWriterContext : IWriterContext
 {
     public ContentTypesWriterContext(string[] sheetTags)
     {
@@ -16,5 +16,5 @@ public class ContentTypesWriterContext : IWriterContext
     public string[] SheetTags { get; }
 
     public async Task WriteAsync(XmlWriter writer, CancellationToken cancellationToken)
-        => await new ContentTypesWriter(this, writer).WriteAsync();
+        => await new ContentTypesWriter(this, writer).WriteAsync(cancellationToken);
 }

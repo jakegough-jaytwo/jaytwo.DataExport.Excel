@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.OpenXml;
 
-public class RelationshipIndex
+internal class RelationshipIndex
 {
     private const string WorksheetType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet";
+    private const string StyleSheetType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles";
 
     private readonly List<RelationshipSpec> _relationships;
 
@@ -20,6 +21,9 @@ public class RelationshipIndex
 
     public RelationshipSpec AddSheet(string sheetTag)
         => Add($"worksheets/{sheetTag}.xml", WorksheetType);
+
+    public RelationshipSpec AddStyleSheet()
+        => Add($"styles.xml", StyleSheetType);
 
     public RelationshipSpec Add(string target, string type)
     {

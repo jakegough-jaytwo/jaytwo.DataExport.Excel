@@ -5,7 +5,7 @@ using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class ExtendedPropertiesWriterContext : IWriterContext
+internal class ExtendedPropertiesWriterContext : IWriterContext
 {
     public ExtendedPropertiesWriterContext(string application, string appVersion, string company, IList<string> sheetNames)
     {
@@ -26,5 +26,5 @@ public class ExtendedPropertiesWriterContext : IWriterContext
     public IList<string> SheetNames { get; }
 
     public async Task WriteAsync(XmlWriter writer, CancellationToken cancellationToken)
-        => await new ExtendedPropertiesWriter(this, writer).WriteAsync();
+        => await new ExtendedPropertiesWriter(this, writer).WriteAsync(cancellationToken);
 }

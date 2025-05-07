@@ -4,7 +4,7 @@ using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class WorkbookRelationshipsWriter : RelationshipsWriter
+internal class WorkbookRelationshipsWriter : RelationshipsWriter
 {
     public WorkbookRelationshipsWriter(WorkbookRelationshipsWriterContext context, XmlWriter writer)
         : base(writer)
@@ -18,10 +18,7 @@ public class WorkbookRelationshipsWriter : RelationshipsWriter
     {
         foreach (var relationship in Context.Relationships)
         {
-            await WriteRelationshipElementAsync(
-                id: relationship.Id,
-                type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet",
-                target: relationship.Target);
+            await WriteRelationshipElementAsync(id: relationship.Id, type: relationship.Type, target: relationship.Target);
         }
     }
 }

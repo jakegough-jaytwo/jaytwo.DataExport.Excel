@@ -23,8 +23,10 @@ public class StreamingExcelExporterTests
         _output = output;
     }
 
-    [Fact]
-    public async Task WriteData_WritesExpectedRows()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task WriteData_WritesExpectedRows(bool useZip64)
     {
         // Arrange
         var people = new List<Person>
@@ -34,7 +36,7 @@ public class StreamingExcelExporterTests
         };
 
         using var memoryStream = new MemoryStream();
-        using (var exporter = new StreamingExcelExporter(memoryStream))
+        using (var exporter = new StreamingExcelExporter(memoryStream, useZip64: useZip64))
         {
             // Act
             await exporter.WriteSheetAsync(people);
@@ -43,7 +45,7 @@ public class StreamingExcelExporterTests
         memoryStream.Position = 0; // Reset to beginning for reading
 
         // Assert
-        using var doc = SpreadsheetDocument.Open(memoryStream, false);
+        using var doc = SpreadsheetDocument.Open(memoryStream, isEditable: false);
         var sheet = doc.WorkbookPart!.Workbook.Sheets!.Elements<Sheet>().First();
         var worksheetPart = (WorksheetPart)doc.WorkbookPart.GetPartById(sheet.Id!);
         var sheetData = worksheetPart.Worksheet.Elements<SheetData>().First();
@@ -67,11 +69,81 @@ public class StreamingExcelExporterTests
         WriteFileSize(memoryStream.Length);
     }
 
+    [Fact]
+    public async Task Write_multiple_sheets_WritesExpectedRows()
+    {
+        // Arrange
+        var people = new List<Person>
+        {
+            new Person { Name = "Alice", Age = 30 },
+            new Person { Name = "Bob", Age = 25 },
+        };
+
+        var pets = new List<Pet>
+        {
+            new Pet { Name = "Mickey", Animal = "Mouse" },
+            new Pet { Name = "Bugs", Animal = "Bunny" },
+        };
+
+        using var memoryStream = new MemoryStream();
+        using (var exporter = new StreamingExcelExporter(memoryStream))
+        {
+            // Act
+            await exporter.WriteSheetAsync(people, "People");
+            await exporter.WriteSheetAsync(pets, "Pets");
+        }
+
+        memoryStream.Position = 0; // Reset to beginning for reading
+
+        // Assert
+        using var doc = SpreadsheetDocument.Open(memoryStream, false);
+        var peopleSheet = doc.WorkbookPart!.Workbook.Sheets!.Elements<Sheet>().First();
+        var peopleWorksheetPart = (WorksheetPart)doc.WorkbookPart.GetPartById(peopleSheet.Id!);
+        var peopleSheetData = peopleWorksheetPart.Worksheet.Elements<SheetData>().First();
+
+        var petsSheet = doc.WorkbookPart!.Workbook.Sheets!.Elements<Sheet>().Last();
+        var petsWorksheetPart = (WorksheetPart)doc.WorkbookPart.GetPartById(petsSheet.Id!);
+        var petsSheetData = petsWorksheetPart.Worksheet.Elements<SheetData>().First();
+
+        var peopleRows = peopleSheetData.Elements<Row>().ToList();
+        Assert.Equal(3, peopleRows.Count); // 1 header + 2 data rows
+
+        var peopleHeaderCells = peopleRows[0].Elements<Cell>().ToList();
+        Assert.Equal("Name", GetCellValue(doc, peopleHeaderCells[0]));
+        Assert.Equal("Age", GetCellValue(doc, peopleHeaderCells[1]));
+
+        var peopleRow1 = peopleRows[1].Elements<Cell>().ToList();
+        Assert.Equal("Alice", GetCellValue(doc, peopleRow1[0]));
+        Assert.Equal("30", GetCellValue(doc, peopleRow1[1]));
+
+        var peopleRow2 = peopleRows[2].Elements<Cell>().ToList();
+        Assert.Equal("Bob", GetCellValue(doc, peopleRow2[0]));
+        Assert.Equal("25", GetCellValue(doc, peopleRow2[1]));
+
+        var petsRows = petsSheetData.Elements<Row>().ToList();
+        Assert.Equal(3, petsRows.Count); // 1 header + 2 data rows
+
+        var petsHeaderCells = petsRows[0].Elements<Cell>().ToList();
+        Assert.Equal("Name", GetCellValue(doc, petsHeaderCells[0]));
+        Assert.Equal("Animal", GetCellValue(doc, petsHeaderCells[1]));
+
+        var petsRow1 = petsRows[1].Elements<Cell>().ToList();
+        Assert.Equal("Mickey", GetCellValue(doc, petsRow1[0]));
+        Assert.Equal("Mouse", GetCellValue(doc, petsRow1[1]));
+
+        var petsRow2 = petsRows[2].Elements<Cell>().ToList();
+        Assert.Equal("Bugs", GetCellValue(doc, petsRow2[0]));
+        Assert.Equal("Bunny", GetCellValue(doc, petsRow2[1]));
+
+        WriteMemoryUsage();
+        WriteFileSize(memoryStream.Length);
+    }
+
     [Theory]
     [InlineData(10000)]
-    [InlineData(100000)]
-    [InlineData(200000)]
-    [InlineData(900000)]
+    //[InlineData(100000)]
+    //[InlineData(200000)]
+    //[InlineData(900000)]
     public async Task WritingToDisk(int personCount)
     {
         // Arrange

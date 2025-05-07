@@ -1,9 +1,11 @@
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.Writers.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class WorkbookWriter : XmlDocumentWriter
+internal class WorkbookWriter : XmlDocumentWriter
 {
     private const string RelationshipsNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 
@@ -15,7 +17,7 @@ public class WorkbookWriter : XmlDocumentWriter
 
     public WorkbookWriterContext Context { get; }
 
-    protected override async Task WriteRootElementAsync()
+    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
     {
         await using (CreateElementScope("workbook", "http://schemas.openxmlformats.org/spreadsheetml/2006/main"))
         {

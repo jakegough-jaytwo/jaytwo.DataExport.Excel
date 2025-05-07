@@ -4,10 +4,10 @@ using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class DotRelsWriterContext : IWriterContext
+internal class DotRelsWriterContext : IWriterContext
 {
     public string ZipPackagePath => "_rels/.rels";
 
     public Task WriteAsync(XmlWriter writer, CancellationToken cancellationToken)
-        => new DotRelsWriter(this, writer).WriteAsync();
+        => new DotRelsWriter(this, writer).WriteAsync(cancellationToken);
 }

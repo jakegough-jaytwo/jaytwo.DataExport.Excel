@@ -5,7 +5,7 @@ using System.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
 
-public class CorePropertiesWriterContext : IWriterContext
+internal class CorePropertiesWriterContext : IWriterContext
 {
     public CorePropertiesWriterContext(string creator, DateTime createdUtc)
         : this(creator, creator, createdUtc, createdUtc)
@@ -37,5 +37,5 @@ public class CorePropertiesWriterContext : IWriterContext
             lastModifiedBy: LastModifiedBy,
             createdUtc: CreatedUtc,
             modifiedUtc: ModifiedUtc)
-            .WriteAsync();
+            .WriteAsync(cancellationToken);
 }

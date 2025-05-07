@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.OpenXml;
 
-public class WorksheetIndex
+internal class WorksheetIndex
 {
     private readonly RelationshipIndex _relationships;
     private readonly List<WorksheetSpec> _sheets = new List<WorksheetSpec>();

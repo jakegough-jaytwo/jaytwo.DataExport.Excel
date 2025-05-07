@@ -1,6 +1,6 @@
-namespace jaytwo.StreamingExcelExport;
+namespace jaytwo.StreamingExcelExport.OpenXml;
 
-public record class WorksheetSpec
+internal record class WorksheetSpec
 {
     public WorksheetSpec(string sheetName, string sheetTag, string sheetId, string relationshipId)
         => (SheetName, SheetTag, SheetId, RelationshipId) = (sheetName, sheetTag, sheetId, relationshipId);

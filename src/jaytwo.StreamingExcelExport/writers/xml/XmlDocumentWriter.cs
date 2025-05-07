@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
-using jaytwo.StreamingExcelExport.Writers.Xml;
 
-namespace jaytwo.StreamingExcelExport.Writers;
+namespace jaytwo.StreamingExcelExport.Writers.Xml;
 
-public abstract class XmlDocumentWriter
+internal abstract class XmlDocumentWriter
 {
     public XmlDocumentWriter(XmlWriter writer)
     {
@@ -15,18 +15,26 @@ public abstract class XmlDocumentWriter
 
     protected XmlWriter Writer { get; }
 
-    public async Task WriteAsync()
+    public async Task WriteAsync(CancellationToken cancellationToken)
     {
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
+
         await using (await CreateDocumentElementScope())
         {
-            await WriteRootElementAsync();
+            await WriteRootElementAsync(cancellationToken);
         }
+
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
+
+        await Writer.FlushAsync();
     }
 
     protected virtual async Task<XmlDocumentScope> CreateDocumentElementScope()
         => await CreateDocumentScopeAsync(standalone: true);
 
-    protected abstract Task WriteRootElementAsync();
+    protected abstract Task WriteRootElementAsync(CancellationToken cancellationToken);
 
     protected async Task WriteElementWithAttributes(string elementName, Dictionary<string, string> attributes)
     {
