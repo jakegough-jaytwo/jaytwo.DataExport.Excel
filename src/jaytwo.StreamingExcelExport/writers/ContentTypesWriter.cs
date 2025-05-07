@@ -29,6 +29,11 @@ internal class ContentTypesWriter : XmlDocumentWriter
                 await WriteOverrideElementAsync(partName: $"/xl/worksheets/{sheetTag}.xml", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml");
             }
 
+            if (Context.HasStyleSheet)
+            {
+                await WriteOverrideElementAsync(partName: "/xl/styles.xml", contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml");
+            }
+
             await WriteOverrideElementAsync(partName: "/docProps/core.xml", contentType: "application/vnd.openxmlformats-package.core-properties+xml");
             await WriteOverrideElementAsync(partName: "/docProps/app.xml", contentType: "application/vnd.openxmlformats-officedocument.extended-properties+xml");
         }

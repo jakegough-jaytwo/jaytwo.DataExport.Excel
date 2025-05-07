@@ -19,6 +19,9 @@ internal class RelationshipIndex
     public RelationshipSpec[] Relationshnips
         => _relationships.AsReadOnly().ToArray();
 
+    public bool HasStyleSheet
+        => _relationships.Any(x => x.Type == StyleSheetType);
+
     public RelationshipSpec AddSheet(string sheetTag)
         => Add($"worksheets/{sheetTag}.xml", WorksheetType);
 

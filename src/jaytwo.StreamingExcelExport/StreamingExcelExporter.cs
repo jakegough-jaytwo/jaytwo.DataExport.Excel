@@ -97,7 +97,7 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
         await WriteAsync(new CorePropertiesWriterContext(Creator, CreatedAtUtc), cancellationToken);
         await WriteAsync(new WorkbookRelationshipsWriterContext(_relationships.Relationshnips), cancellationToken);
         await WriteAsync(new WorkbookWriterContext(_sheetsIndex.Sheets), cancellationToken);
-        await WriteAsync(new ContentTypesWriterContext(_sheetsIndex.SheetTags), cancellationToken);
+        await WriteAsync(new ContentTypesWriterContext(_sheetsIndex.SheetTags, _relationships.HasStyleSheet), cancellationToken);
         await WriteAsync(BuildAppPropertiesWriterContext(), cancellationToken);
         await OutputStream.FlushAsync(cancellationToken);
     }

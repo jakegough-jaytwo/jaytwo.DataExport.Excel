@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.StreamingExcelExport.OpenXml;
 using jaytwo.StreamingExcelExport.Writers.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
@@ -45,25 +46,6 @@ internal class WorksheetWriter<T> : XmlDocumentWriter
         }
 
         return columnName;
-    }
-
-    public static double? ToExcelSerialDate(DateTime? date)
-        => (date == null) ? null : ToExcelSerialDate(date.Value);
-
-    public static double ToExcelSerialDate(DateTime date)
-    {
-        var baseDate = new DateTime(1899, 12, 31); // Excel's day 1 = Jan 1, 1900
-
-        var serial = (date - baseDate).TotalDays;
-
-        // Excel incorrectly includes Feb 29, 1900, which didn't exist
-        // So for any date >= Mar 1, 1900, add 1 to compensate
-        if (date >= new DateTime(1900, 3, 1))
-        {
-            serial += 1;
-        }
-
-        return serial;
     }
 
     protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
@@ -125,52 +107,29 @@ internal class WorksheetWriter<T> : XmlDocumentWriter
 
     private async Task WriteCellElementAsync(string cell, object value)
     {
-        FormatObject(value, out var formattedValue, out var type);
+        var cellInfo = CellFormatInfo.FromValue(value);
 
         await using (CreateElementScope("c"))
         {
             WriteAttributeString("r", cell);
-            WriteAttributeString("t", type);
 
-            await using (CreateElementScope("v"))
+            if (!string.IsNullOrEmpty(cellInfo.Type))
             {
-                Writer.WriteValue(formattedValue);
+                WriteAttributeString("t", cellInfo.Type);
+            }
+
+            if (cellInfo.StyleIndex != null)
+            {
+                WriteAttributeString("s", cellInfo.StyleIndex.Value.ToString(CultureInfo.InvariantCulture));
+            }
+
+            if (!string.IsNullOrEmpty(cellInfo.Value))
+            {
+                await using (CreateElementScope("v"))
+                {
+                    Writer.WriteValue(cellInfo.Value);
+                }
             }
         }
-    }
-
-    private void FormatObject(object value, out string result, out string type)
-    {
-        if (value is string asString)
-        {
-            type = Types.String;
-            result = asString;
-        }
-        else if (value is int asInt)
-        {
-            type = Types.Numeric;
-            result = asInt.ToString(CultureInfo.InvariantCulture);
-        }
-        else if (value is double asDouble)
-        {
-            type = Types.Numeric;
-            result = asDouble.ToString(CultureInfo.InvariantCulture);
-        }
-        else if (value is DateTime asDateTime)
-        {
-            type = Types.Numeric;
-            result = ToExcelSerialDate(asDateTime).ToString(CultureInfo.InvariantCulture);
-        }
-        else
-        {
-            type = Types.String;
-            result = $"{value}";
-        }
-    }
-
-    public class Types
-    {
-        public const string String = "str";
-        public const string Numeric = "n";
     }
 }
