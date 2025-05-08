@@ -68,7 +68,7 @@ internal class StylesWriter : XmlDocumentWriter
 
     private async Task WriteFillsElementAsync()
     {
-        await using (CreateElementScopeWithAttributes("fills", new() { { "count", "2" } }))
+        await using (CreateElementScopeWithAttributes("fills", new() { { "count", "3" } }))
         {
             await using (CreateElementScope("fill"))
             {
@@ -84,7 +84,7 @@ internal class StylesWriter : XmlDocumentWriter
             {
                 await using (CreateElementScopeWithAttributes("patternFill", new() { { "patternType", "solid" } }))
                 {
-                    await WriteElementWithAttributes("fgColor", new() { { "rgb", "FFEFEFEF" } });
+                    await WriteElementWithAttributes("fgColor", new() { { "rgb", "FFE6F0FA" } });
                     await WriteElementWithAttributes("bgColor", new() { { "indexed", "64" } });
                 }
             }
