@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using jaytwo.StreamingExcelExport.OpenXml;
+using jaytwo.StreamingExcelExport.Styles;
 using jaytwo.StreamingExcelExport.Writers;
 using jaytwo.StreamingExcelExport.Zip;
 
@@ -18,6 +19,7 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
     private IZipWriter _zip;
     private RelationshipIndex _relationships;
     private WorksheetIndex _sheetsIndex;
+    private bool _initialized;
 
     public StreamingExcelExporter(
         Stream outputStream,
@@ -56,16 +58,26 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
     public async Task WriteSheetAsync<T>(
         IEnumerable<T> data,
         string sheetName = DefaultSheetName,
+        IDictionary<string, ColumnLayout>? columnLayouts = null,
         CancellationToken cancellationToken = default)
-        => await WriteSheetAsync(ToAsyncEnumerable(data, cancellationToken), sheetName, cancellationToken);
+        => await WriteSheetAsync(ToAsyncEnumerable(data, cancellationToken), sheetName, columnLayouts, cancellationToken);
 
     public async Task WriteSheetAsync<T>(
         IAsyncEnumerable<T> data,
         string sheetName = DefaultSheetName,
+        IDictionary<string, ColumnLayout>? columnLayouts = null,
         CancellationToken cancellationToken = default)
     {
+        await WriteStartAsync(cancellationToken);
+
         var sheetSpec = _sheetsIndex.Add(sheetName);
-        await WriteAsync(new WorksheetWriterContext<T>(sheetSpec.SheetTag, data), cancellationToken);
+        await WriteAsync(new WorksheetWriterContext<T>(sheetSpec.SheetTag, columnLayouts, data), cancellationToken);
+    }
+
+    public async Task WriteStyleSheetAsync(CancellationToken cancellationToken = default)
+    {
+        var relationship = _relationships.AddStyleSheet(); // the rId isn't actually referenced anywhere
+        await WriteAsync(new StylesWriterContext(), cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
@@ -91,14 +103,23 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
         }
     }
 
+    private async Task WriteStartAsync(CancellationToken cancellationToken)
+    {
+        if (!_initialized)
+        {
+            await WriteAsync(new DotRelsWriterContext(), cancellationToken);
+            await WriteAsync(new CorePropertiesWriterContext(Creator, CreatedAtUtc), cancellationToken);
+            await WriteStyleSheetAsync(cancellationToken);
+            _initialized = true;
+        }
+    }
+
     private async ValueTask WriteFinishAsync(CancellationToken cancellationToken = default)
     {
-        await WriteAsync(new DotRelsWriterContext(), cancellationToken);
-        await WriteAsync(new CorePropertiesWriterContext(Creator, CreatedAtUtc), cancellationToken);
         await WriteAsync(new WorkbookRelationshipsWriterContext(_relationships.Relationshnips), cancellationToken);
         await WriteAsync(new WorkbookWriterContext(_sheetsIndex.Sheets), cancellationToken);
         await WriteAsync(new ContentTypesWriterContext(_sheetsIndex.SheetTags, _relationships.HasStyleSheet), cancellationToken);
-        await WriteAsync(BuildAppPropertiesWriterContext(), cancellationToken);
+        await WriteAsync(BuildAppPropertiesWriterContext(), cancellationToken); // needs to be after sheets are written
         await OutputStream.FlushAsync(cancellationToken);
     }
 

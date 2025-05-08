@@ -42,10 +42,8 @@ internal class WorkbookWriter : XmlDocumentWriter
 
     private async Task WriteSheetElementAsync(string name, string sheetId, string rid)
     {
-        await using (CreateElementScope("sheet"))
+        await using (CreateElementScopeWithAttributes("sheet", new() { { "name", name }, { "sheetId", sheetId } }))
         {
-            WriteAttributeString("name", name);
-            WriteAttributeString("sheetId", sheetId);
             WriteAttributeString("r", "id", RelationshipsNamespace, rid);
         }
     }

@@ -53,6 +53,18 @@ internal abstract class XmlDocumentWriter
     protected XmlElementScope CreateElementScope(string elementName)
         => XmlElementScope.Create(Writer, elementName);
 
+    protected XmlElementScope CreateElementScopeWithAttributes(string elementName, Dictionary<string, string> attributes)
+    {
+        var scope = CreateElementScope(elementName);
+
+        foreach (var attribute in attributes)
+        {
+            WriteAttributeString(attribute.Key, attribute.Value);
+        }
+
+        return scope;
+    }
+
     protected XmlElementScope CreateElementScope(string elementName, string ns)
         => XmlElementScope.Create(Writer, elementName, ns);
 

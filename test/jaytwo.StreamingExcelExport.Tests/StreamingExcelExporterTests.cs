@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using jaytwo.DisappearingFiles;
+using jaytwo.RuntimeRevelation;
+using jaytwo.StreamingExcelExport.Styles;
 using jaytwo.StreamingExcelExport.Tests.Models;
 using Xunit;
 using Xunit.Abstractions;
@@ -164,6 +166,26 @@ public class StreamingExcelExporterTests
         WriteFileSize(fileStream.Length);
     }
 
+    [SkippableFact]
+    public async Task SanityCheck_LaunchesExcel()
+    {
+        Skip.If(RuntimeInformation.Current.Platform != OSPlatform.Windows);
+
+        // Arrange
+        var outputFileName = new SolutionResolution.SlnFileResolver().ResolvePathRelativeToSln($"out/{DateTime.Now.Ticks}.xlsx");
+        using (var fileStream = new FileStream(outputFileName, FileMode.Create, FileAccess.Write))
+        {
+            // Act
+            await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: 200, sheetCount: 5);
+        }
+
+        Process.Start("explorer", outputFileName);
+
+        // Assert
+        WriteMemoryUsage();
+        WriteFileSize(new FileInfo(outputFileName).Length);
+    }
+
     private static string GetCellValue(SpreadsheetDocument document, Cell cell)
     {
         if (cell == null)
@@ -193,5 +215,23 @@ public class StreamingExcelExporterTests
     private void WriteFileSize(long length)
     {
         _output.WriteLine($"Stream Size: {length / (1024.0 * 1024.0):F2} MB");
+    }
+
+    private async Task BuildWorksheetSampleWorkSheet(Stream outputStream, int rowsPerSheet = 10, int sheetCount = 2)
+    {
+        using (var exporter = new StreamingExcelExporter(outputStream, useZip64: false))
+        {
+            for (var i = 0; i < sheetCount; i++)
+            {
+                var columnLayout = new Dictionary<string, ColumnLayout>();
+                columnLayout["Name"] = new ColumnLayout() { ColumnWidth = 30 };
+                columnLayout["Age"] = new ColumnLayout() { ColumnWidth = 15, HorizontalAlignment = HorizontalAlignmentStyles.Center };
+
+                await exporter.WriteSheetAsync(
+                    PersonFactory.GeneratePeople(rowsPerSheet),
+                    $"People{i}",
+                    columnLayout);
+            }
+        }
     }
 }

@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using jaytwo.StreamingExcelExport.OpenXml;
+using jaytwo.StreamingExcelExport.Styles;
 using jaytwo.StreamingExcelExport.Writers.Xml;
 
 namespace jaytwo.StreamingExcelExport.Writers;
@@ -19,12 +20,30 @@ internal class WorksheetWriter<T> : XmlDocumentWriter
     private const string MCNamespace = "http://schemas.openxmlformats.org/markup-compatibility/2006";
 
     private readonly IList<PropertyInfo> _props;
+    private readonly IDictionary<string, (int ColumnNumber, ColumnLayout? ColumnLayout)> _propDictionary;
 
     public WorksheetWriter(WorksheetWriterContext<T> context, XmlWriter writer)
         : base(writer)
     {
-        _props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
         Context = context;
+
+        var caseInsensitiveColumnLayouts = context.ColumnLayouts?
+            .ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
+
+        _props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+        _propDictionary = Enumerable.Range(0, _props.Count).ToDictionary(
+            i => _props[i].Name,
+            i => (i + 1, GetColumnLayout(i)),
+            StringComparer.OrdinalIgnoreCase);
+
+        ColumnLayout? GetColumnLayout(int i)
+        {
+            var prop = _props[i];
+            ColumnLayout? result = default;
+            caseInsensitiveColumnLayouts?.TryGetValue(prop.Name, out result);
+            return result;
+        }
     }
 
     public WorksheetWriterContext<T> Context { get; }
@@ -62,6 +81,33 @@ internal class WorksheetWriter<T> : XmlDocumentWriter
 
             WriteAttributeString("xr", "uid", XRNamespace, "{5805E005-BFE0-4B3C-AB23-D8BB48A5F78F}");
 
+            if (Context.FreezeHeaderRow)
+            {
+                await using (CreateElementScope("sheetViews"))
+                {
+                    await using (CreateElementScopeWithAttributes("sheetView", new() { { "tabSelected", "1" }, { "workbookViewId", "0" } }))
+                    {
+                        await WriteElementWithAttributes("pane", new() { { "ySplit", "1" }, { "topLeftCell", "A2" }, { "activePane", "bottomLeft" }, { "state", "frozen" } });
+                    }
+                }
+            }
+
+            if (Context.ColumnLayouts != null && Context.ColumnLayouts.Any())
+            {
+                await using (CreateElementScope("cols"))
+                {
+                    foreach (var layout in Context.ColumnLayouts)
+                    {
+                        var columnLayout = layout.Value;
+                        var columnNumber = _propDictionary[layout.Key].ColumnNumber;
+                        var columnWidth = columnLayout.ColumnWidth;
+                        await using (CreateElementScopeWithAttributes("col", new() { { "min", $"{columnNumber}" }, { "max", $"{columnNumber}" }, { "width", $"{columnWidth}" }, { "customWidth", "1" } }))
+                        {
+                        }
+                    }
+                }
+            }
+
             await using (CreateElementScope("sheetData"))
             {
                 int rowNumber = 1;
@@ -73,6 +119,19 @@ internal class WorksheetWriter<T> : XmlDocumentWriter
         }
     }
 
+    private ColumnLayout? GetColumnLayout(int columnNumber)
+        => GetColumnLayout(columnNumber, out _);
+
+    private ColumnLayout? GetColumnLayout(int columnNumber, out string columnName)
+    {
+        var prop = _props[columnNumber - 1];
+        columnName = prop.Name;
+
+        ColumnLayout? result = default;
+        Context.ColumnLayouts?.TryGetValue(columnName, out result);
+        return result;
+    }
+
     private async IAsyncEnumerable<object[]> GetCellData(
         IAsyncEnumerable<T> data,
         bool writeHeader,
@@ -80,39 +139,41 @@ internal class WorksheetWriter<T> : XmlDocumentWriter
     {
         if (writeHeader)
         {
-            yield return _props.Select(x => x.Name).ToArray();
+            yield return _props.Select(x => x.Name).Cast<object>().ToArray();
         }
 
         await foreach (var item in data.WithCancellation(cancellationToken))
         {
-            yield return _props.Select(x => x.GetValue(item)?.ToString() ?? string.Empty).ToArray();
+            yield return _props.Select(x => x.GetValue(item)).Cast<object>().ToArray();
         }
     }
 
     private async Task WriteRowElementAsync(int rowNumber, object[] itemValues)
     {
-        await using (CreateElementScope("row"))
-        {
-            WriteAttributeString("r", $"{rowNumber}");
+        var bold = Context.IncludeHeader && rowNumber == 1;
+        var zebraStripe = rowNumber % 2 == 0;
 
+        await using (CreateElementScopeWithAttributes("row", new() { { "r", $"{rowNumber}" } }))
+        {
             int columnNumber = 1;
             foreach (var value in itemValues)
             {
-                var column = ToExcelColumnName(columnNumber++);
+                var column = ToExcelColumnName(columnNumber);
                 var cell = $"{column}{rowNumber}";
-                await WriteCellElementAsync(cell, value);
+
+                var columnLayout = GetColumnLayout(columnNumber);
+                var cellInfo = CellFormatInfo.FromValue(value, zebraStripe, bold, columnLayout?.HorizontalAlignment);
+
+                await WriteCellElementAsync(cell, cellInfo);
+                columnNumber++;
             }
         }
     }
 
-    private async Task WriteCellElementAsync(string cell, object value)
+    private async Task WriteCellElementAsync(string cell, CellFormatInfo cellInfo)
     {
-        var cellInfo = CellFormatInfo.FromValue(value);
-
-        await using (CreateElementScope("c"))
+        await using (CreateElementScopeWithAttributes("c", new() { { "r", cell } }))
         {
-            WriteAttributeString("r", cell);
-
             if (!string.IsNullOrEmpty(cellInfo.Type))
             {
                 WriteAttributeString("t", cellInfo.Type);
@@ -120,14 +181,15 @@ internal class WorksheetWriter<T> : XmlDocumentWriter
 
             if (cellInfo.StyleIndex != null)
             {
-                WriteAttributeString("s", cellInfo.StyleIndex.Value.ToString(CultureInfo.InvariantCulture));
+                WriteAttributeString("s", $"{cellInfo.StyleIndex}");
             }
 
-            if (!string.IsNullOrEmpty(cellInfo.Value))
+            var valueString = cellInfo.GetValueAsString();
+            if (!string.IsNullOrEmpty(valueString))
             {
                 await using (CreateElementScope("v"))
                 {
-                    Writer.WriteValue(cellInfo.Value);
+                    Writer.WriteValue(valueString);
                 }
             }
         }
