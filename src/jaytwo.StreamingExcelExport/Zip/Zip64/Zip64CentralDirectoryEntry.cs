@@ -3,77 +3,172 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using jaytwo.StreamingExcelExport.Zip.Zip32;
+using static jaytwo.StreamingExcelExport.Zip.ZipConstants;
 
 namespace jaytwo.StreamingExcelExport.Zip.Zip64;
 
-internal class Zip64CentralDirectoryEntry : IZipPart
+internal class Zip64CentralDirectoryEntry : Zip32CentralDirectoryEntry, IZipPart
 {
-    public const uint Signature = Zip32CentralDirectoryEntry.Signature;
-    private const ushort Zip64ExtraFieldHeaderId = 0x0001;
-    private const uint SeeZip64ExtraFields = 0xFFFFFFFF;
-    private const ushort VersionMadeBy = ZipConstants.Versions.Version20;
-    private const ushort VersionNeededToExtract = VersionMadeBy;
-    private const ushort GeneralPurposeBitFlag = ZipConstants.GeneralPurposeBitFlags.DataDescriptorFollows;
-    private const ushort CompressionMethod = ZipConstants.CompressionMethods.NoCompression;
-    private const ushort LastModTime = 0;
-    private const ushort LastModDate = 0;
-    private const ushort DiskNumberStart = 0;
-    private const ushort InternalFileAttributes = 0;
-    private const uint ExternalFileAttributes = 0;
+    public const ushort Zip64ExtraFieldHeaderId = 0x0001;
+    public const uint SeeZip64ExtraFields = 0xFFFFFFFF;
 
-    public uint Crc32 { get; set; }
+    private const int Zip64ExtraFieldTotalLength = 28; // 2 + 2 + 8 + 8 + 8
 
-    public ulong CompressedSize => UncompressedSize;
+    public ushort? ParsedZip64HeaderId => ParseZip64ExtraField()?.HeaderId;
 
-    public ulong UncompressedSize { get; set; }
+    public ushort? ParsedZip64DataLength => ParseZip64ExtraField()?.DataLength;
 
-    public string FileName { get; set; } = string.Empty;
-
-    public ulong LocalHeaderOffset { get; set; }
-
-    public string? FileComment { get; set; }
-
-    public void WriteTo(Stream stream)
+    public ulong? Zip64UncompressedSize
     {
-        if (stream == null || !stream.CanWrite)
+        get => ParseZip64ExtraField()?.UncompressedSize;
+        set => UpdateZip64ExtraField(uncompressedSize: value);
+    }
+
+    public ulong? Zip64CompressedSize
+    {
+        get => ParseZip64ExtraField()?.CompressedSize;
+        set => UpdateZip64ExtraField(compressedSize: value);
+    }
+
+    public ulong? Zip64LocalHeaderOffset
+    {
+        get => ParseZip64ExtraField()?.LocalHeaderOffset;
+        set => UpdateZip64ExtraField(localHeaderOffset: value);
+    }
+
+    public bool HasValidZip64ExtraField => ParseZip64ExtraField() != null;
+
+    public static Zip64CentralDirectoryEntry CreateDefault(
+        ushort compressionMethod = CompressionMethods.NoCompression,
+        uint? crc32 = default,
+        ulong? compressedSize = default,
+        ulong? uncompressedSize = default,
+        string? fileName = default,
+        string? fileComment = default,
+        ulong? localHeaderOffset = default)
+    {
+        var result = new Zip64CentralDirectoryEntry()
         {
-            throw new ArgumentException("Stream must be writable.", nameof(stream));
+            Signature = KnownSignature,
+            VersionMadeBy = ZipConstants.Versions.Version20,
+            VersionNeededToExtract = ZipConstants.Versions.Version20,
+            GeneralPurposeBitFlag = ZipConstants.GeneralPurposeBitFlags.DataDescriptorFollows,
+            CompressionMethod = compressionMethod,
+            LastModTime = 0,
+            LastModDate = 0,
+            DiskNumberStart = 0,
+            InternalFileAttributes = 0,
+            ExternalFileAttributes = 0,
+            Crc32 = crc32,
+            CompressedSize = SeeZip64ExtraFields,
+            UncompressedSize = SeeZip64ExtraFields,
+            LocalHeaderOffset = SeeZip64ExtraFields,
+            Zip64CompressedSize = compressedSize ?? 0,
+            Zip64UncompressedSize = uncompressedSize ?? 0,
+            Zip64LocalHeaderOffset = localHeaderOffset ?? 0,
+        };
+
+        result.FileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
+        result.FileNameLength = (ushort)Encoding.UTF8.GetByteCount(fileName);
+
+        fileComment ??= string.Empty;
+        result.FileComment = fileComment;
+        result.FileCommentLength = (ushort)Encoding.UTF8.GetByteCount(fileComment);
+
+        return result;
+    }
+
+    public static new Zip64CentralDirectoryEntry Parse(byte[] bytes, bool validateLength = false)
+    {
+        var result = new Zip64CentralDirectoryEntry();
+        Load(result, bytes, validateLength);
+        return result;
+    }
+
+    public override string ToString() =>
+        $"CDR64[\"{FileName}\", CRC={Crc32}, Size={Zip64CompressedSize}, Offset={Zip64LocalHeaderOffset}]";
+
+    private void UpdateZip64ExtraField(ulong? uncompressedSize = default, ulong? compressedSize = default, ulong? localHeaderOffset = default)
+    {
+        var extra = ParseZip64ExtraField() ?? new Zip64Extra(Zip64ExtraFieldHeaderId, 24);
+        extra.UncompressedSize = uncompressedSize ?? extra.UncompressedSize;
+        extra.CompressedSize = compressedSize ?? extra.CompressedSize;
+        extra.LocalHeaderOffset = localHeaderOffset ?? extra.LocalHeaderOffset;
+
+        ExtraField = extra.ToByteArray();
+        ExtraFieldLength = (ushort)ExtraField.Length;
+    }
+
+    private Zip64Extra? ParseZip64ExtraField()
+        => Zip64Extra.TryParse(ExtraField, out var result) ? result : null;
+
+    private record struct Zip64Extra
+    {
+        public Zip64Extra(
+            ushort headerId,
+            ushort dataLength,
+            ulong uncompressedSize = 0,
+            ulong compressedSize = 0,
+            ulong localHeaderOffset = 0)
+        {
+            HeaderId = headerId;
+            DataLength = dataLength;
+            UncompressedSize = uncompressedSize;
+            CompressedSize = compressedSize;
+            LocalHeaderOffset = localHeaderOffset;
         }
 
-        var fileNameBytes = Encoding.UTF8.GetBytes(FileName);
-        var commentBytes = Encoding.UTF8.GetBytes(FileComment ?? string.Empty);
+        public ushort HeaderId { get; set; }
 
-        var extraFieldHeaderLength = 4; // 2 byte header id + 2 byte data size
-        var extraFieldDataLength = 24; // 8 byte UncompressedSize + 8 byte CompressedSize + 8 byte LocalHeaderOffset
-        var extraFieldTotalLength = extraFieldHeaderLength + extraFieldDataLength;
+        public ushort DataLength { get; set; }
 
-        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write(Signature);
-        writer.Write(VersionMadeBy);
-        writer.Write(VersionNeededToExtract);
-        writer.Write(GeneralPurposeBitFlag);
-        writer.Write(CompressionMethod);
-        writer.Write(LastModTime);
-        writer.Write(LastModDate);
-        writer.Write(Crc32);
-        writer.Write(SeeZip64ExtraFields); // CompressedSize
-        writer.Write(SeeZip64ExtraFields); // UncompressedSize
-        writer.Write((ushort)fileNameBytes.Length);
-        writer.Write((ushort)extraFieldTotalLength);
-        writer.Write((ushort)commentBytes.Length);
-        writer.Write(DiskNumberStart);
-        writer.Write(InternalFileAttributes);
-        writer.Write(ExternalFileAttributes);
-        writer.Write(SeeZip64ExtraFields); // LocalHeaderOffset
-        writer.Write(fileNameBytes);
+        public ulong UncompressedSize { get; set; }
 
-        // Write ZIP64 extra field
-        writer.Write(Zip64ExtraFieldHeaderId); // ID = 0x0001
-        writer.Write((ushort)extraFieldDataLength);
-        writer.Write(UncompressedSize);
-        writer.Write(CompressedSize);
-        writer.Write(LocalHeaderOffset);
+        public ulong CompressedSize { get; set; }
 
-        writer.Write(commentBytes);
+        public ulong LocalHeaderOffset { get; set; }
+
+        public static bool TryParse(byte[]? bytes, out Zip64Extra zip64Extra)
+        {
+            try
+            {
+                zip64Extra = Parse(bytes);
+                return true;
+            }
+            catch
+            {
+                zip64Extra = default;
+                return false;
+            }
+        }
+
+        public static Zip64Extra Parse(byte[]? bytes)
+        {
+            if (bytes == null || bytes.Length != Zip64ExtraFieldTotalLength)
+            {
+                throw new InvalidOperationException("Invalid Zip64 extra field");
+            }
+
+            return new Zip64Extra
+            {
+                HeaderId = BitConverter.ToUInt16(bytes, 0),
+                DataLength = BitConverter.ToUInt16(bytes, 2),
+                UncompressedSize = BitConverter.ToUInt64(bytes, 4),
+                CompressedSize = BitConverter.ToUInt64(bytes, 12),
+                LocalHeaderOffset = BitConverter.ToUInt64(bytes, 20),
+            };
+        }
+
+        public byte[] ToByteArray()
+        {
+            var extraField = new byte[Zip64ExtraFieldTotalLength];
+            Buffer.BlockCopy(BitConverter.GetBytes(HeaderId), 0, extraField, 0, 2);
+            Buffer.BlockCopy(BitConverter.GetBytes(DataLength), 0, extraField, 2, 2);
+            Buffer.BlockCopy(BitConverter.GetBytes(UncompressedSize), 0, extraField, 4, 8);
+            Buffer.BlockCopy(BitConverter.GetBytes(CompressedSize), 0, extraField, 12, 8);
+            Buffer.BlockCopy(BitConverter.GetBytes(LocalHeaderOffset), 0, extraField, 20, 8);
+
+            return extraField;
+        }
     }
 }

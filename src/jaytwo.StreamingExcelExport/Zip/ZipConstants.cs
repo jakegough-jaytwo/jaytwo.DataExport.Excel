@@ -10,6 +10,7 @@ internal class ZipConstants
     public class CompressionMethods
     {
         public const ushort NoCompression = 0;
+        public const ushort Deflate = 8;
     }
 
     public class Versions

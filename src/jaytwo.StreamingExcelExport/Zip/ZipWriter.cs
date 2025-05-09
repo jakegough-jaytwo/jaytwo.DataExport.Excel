@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Force.Crc32;
 using jaytwo.HashSiphon;
@@ -33,7 +34,7 @@ internal abstract class ZipWriter : IZipWriter
     public static ZipWriter CreateZip64(Stream outputStream, bool leaveOpen = false)
         => new Zip64Writer(outputStream, leaveOpen);
 
-    public async Task WriteFileAsync(string fileName, string comment, Func<Stream, Task> writeFileCallback)
+    public async Task WriteFileAsync(string fileName, string? comment, Func<Stream, Task> writeFileCallback)
     {
         var localHeaderOffset = (uint)_outputStream.Position;
         WriteLocalFileHeader(fileName);
@@ -44,15 +45,22 @@ internal abstract class ZipWriter : IZipWriter
         {
             await writeFileCallback(hashSiphon);
             hashSiphon.Flush(finalizeHash: true);
-            crc32 = BitConverter.ToUInt32(hashSiphon.Hash);
+            crc32 = BitConverter.ToUInt32(hashSiphon.Hash!.Reverse().ToArray()); // i have no idea why the bytes have to be reversed here
         }
 
         var endPosition = _outputStream.Position;
         var fileLength = endPosition - startPosition;
 
-        WriteDataDescriptor(crc32, fileLength);
+        WriteDataDescriptor(crc32, fileLength, fileLength);
 
-        _entries.Add(BuildCentralDirectoryEntry(fileName, fileLength, comment, crc32, localHeaderOffset));
+        _entries.Add(BuildCentralDirectoryEntry(
+            ZipConstants.CompressionMethods.NoCompression,
+            fileName,
+            fileLength,
+            fileLength,
+            comment,
+            crc32,
+            localHeaderOffset));
     }
 
     public void Dispose()
@@ -82,14 +90,21 @@ internal abstract class ZipWriter : IZipWriter
     protected void WriteLocalFileHeader(string fileName)
         => WriteToOutput(BuildLocalFileHeader(fileName));
 
-    protected abstract IZipPart BuildDataDescriptor(uint crc32, long fileLength);
+    protected abstract IZipPart BuildDataDescriptor(uint crc32, long compressedSize, long uncompressedSize);
 
-    protected void WriteDataDescriptor(uint crc32, long fileLength)
-        => WriteToOutput(BuildDataDescriptor(crc32, fileLength));
+    protected void WriteDataDescriptor(uint crc32, long compressedSize, long uncompressedSize)
+        => WriteToOutput(BuildDataDescriptor(crc32, compressedSize, uncompressedSize));
 
-    protected abstract IZipPart BuildCentralDirectoryEntry(string fileName, long uncompressedSize, string comment, uint crc32, long localHeaderOffset);
+    protected abstract IZipPart BuildCentralDirectoryEntry(
+        ushort compressionMethod,
+        string fileName,
+        long compressedSize,
+        long uncompressedSize,
+        string? comment,
+        uint crc32,
+        long localHeaderOffset);
 
-    protected void WriteZip32EndOfCentralDirectory(int totalEntries, long centralDirectoryOffset, long centralDirectorySize, string comment)
+    protected void WriteZip32EndOfCentralDirectory(int totalEntries, long centralDirectoryOffset, long centralDirectorySize, string? comment)
         => WriteToOutput(new Zip32EndOfCentralDirectory
         {
             TotalEntries = (ushort)totalEntries,

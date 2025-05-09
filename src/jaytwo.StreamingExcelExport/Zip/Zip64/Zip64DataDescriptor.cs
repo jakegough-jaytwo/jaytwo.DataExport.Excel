@@ -11,7 +11,7 @@ internal class Zip64DataDescriptor : IZipPart
 
     public uint Crc32 { get; set; }
 
-    public ulong CompressedSize => UncompressedSize;
+    public ulong CompressedSize { get; set; }
 
     public ulong UncompressedSize { get; set; }
 
@@ -24,9 +24,9 @@ internal class Zip64DataDescriptor : IZipPart
 
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
 
-        writer.Write(Signature);          // 0x08074b50
-        writer.Write(Crc32);              // CRC-32 of uncompressed data
-        writer.Write(CompressedSize);     // Compressed size (same as uncompressed for method 0)
-        writer.Write(UncompressedSize);   // Uncompressed size
+        writer.Write(Signature);
+        writer.Write(Crc32);
+        writer.Write(CompressedSize);
+        writer.Write(UncompressedSize);
     }
 }

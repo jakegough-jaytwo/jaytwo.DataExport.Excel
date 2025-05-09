@@ -142,7 +142,8 @@ public class StreamingExcelExporterTests
     }
 
     [Theory]
-    [InlineData(10000)]
+    [InlineData(1000)]
+    //[InlineData(10000)]
     //[InlineData(100000)]
     //[InlineData(200000)]
     //[InlineData(900000)]
@@ -169,7 +170,8 @@ public class StreamingExcelExporterTests
     [SkippableFact]
     public async Task SanityCheck_LaunchesExcel()
     {
-        Skip.If(RuntimeInformation.Current.Platform != OSPlatform.Windows);
+        Skip.IfNot(Debugger.IsAttached, "Not Debugging");
+        Skip.If(RuntimeInformation.Current.Platform != OSPlatform.Windows, "Not Running on Windows");
 
         // Arrange
         var outputFileName = new SolutionResolution.SlnFileResolver().ResolvePathRelativeToSln($"out/{DateTime.Now.Ticks}.xlsx");

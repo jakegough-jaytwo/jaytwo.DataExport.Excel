@@ -13,18 +13,25 @@ internal class Zip64Writer : ZipWriter
     protected override IZipPart BuildLocalFileHeader(string fileName)
         => new Zip64LocalFileHeader { FileName = fileName };
 
-    protected override IZipPart BuildDataDescriptor(uint crc32, long fileLength)
-        => new Zip64DataDescriptor { Crc32 = crc32, UncompressedSize = (ulong)fileLength };
+    protected override IZipPart BuildDataDescriptor(uint crc32, long compressedSize, long uncompressedSize)
+        => new Zip64DataDescriptor { Crc32 = crc32, CompressedSize = (ulong)compressedSize, UncompressedSize = (ulong)uncompressedSize };
 
-    protected override IZipPart BuildCentralDirectoryEntry(string fileName, long uncompressedSize, string comment, uint crc32, long localHeaderOffset)
-        => new Zip64CentralDirectoryEntry
-        {
-            FileName = fileName,
-            UncompressedSize = (ulong)uncompressedSize,
-            LocalHeaderOffset = (ulong)localHeaderOffset,
-            Crc32 = crc32,
-            FileComment = comment,
-        };
+    protected override IZipPart BuildCentralDirectoryEntry(
+        ushort compressionMethod,
+        string fileName,
+        long compressedSize,
+        long uncompressedSize,
+        string? comment,
+        uint crc32,
+        long localHeaderOffset)
+        => Zip64CentralDirectoryEntry.CreateDefault(
+            compressionMethod: compressionMethod,
+            fileName: fileName,
+            compressedSize: (ulong)compressedSize,
+            uncompressedSize: (ulong)uncompressedSize,
+            localHeaderOffset: (ulong)localHeaderOffset,
+            crc32: crc32,
+            fileComment: comment);
 
     protected override void WriteZipCentralDirectory()
     {
