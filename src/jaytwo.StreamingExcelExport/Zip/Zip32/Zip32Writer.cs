@@ -14,7 +14,7 @@ internal class Zip32Writer : ZipWriter
         => Zip32LocalFileHeader.CreateDefault(compressionMethod, fileName);
 
     protected override IZipPart BuildDataDescriptor(uint crc32, long compressedSize, long uncompressedSize)
-        => Zip32DataDescriptor.CreateDefault(crc32: crc32, compressedSize: (ushort)compressedSize, uncompressedSize: (ushort)uncompressedSize);
+        => Zip32DataDescriptor.CreateDefault(crc32: crc32, compressedSize: (uint)compressedSize, uncompressedSize: (uint)uncompressedSize);
 
     protected override IZipPart BuildCentralDirectoryEntry(
         ushort compressionMethod,
