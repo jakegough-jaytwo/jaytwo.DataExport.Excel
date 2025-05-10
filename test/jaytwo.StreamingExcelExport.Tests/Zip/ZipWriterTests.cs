@@ -38,19 +38,27 @@ public class ZipWriterTests
         Assert.Equal("Hello, ZIP!", text);
     }
 
-    [Fact]
-    public async Task ZipWriter_WritesCorrectCrc32()
+    [Theory]
+    [InlineData(256)]
+    [InlineData(65536)]
+    [InlineData(1000000)]
+    [InlineData(2000000)]
+    [InlineData(4000000)]
+    [InlineData(8000000)]
+    //[InlineData(16000000)]
+    //[InlineData(32000000)]
+    public async Task ZipWriter_VerifyEntryRoundTrip(int length)
     {
         using var ms = new MemoryStream();
-        var zipWriter = ZipWriter.CreateZip32(ms, leaveOpen: true);
-
-        await zipWriter.WriteFileAsync("data.bin", string.Empty, async stream =>
+        var bytes = Enumerable.Range(0, length).Select(i => (byte)(i % 256)).ToArray();
+        using (var zipWriter = ZipWriter.CreateZip32(ms, leaveOpen: true))
         {
-            var bytes = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
-            await stream.WriteAsync(bytes);
-        });
+            await zipWriter.WriteFileAsync("data.bin", string.Empty, async stream =>
+            {
+                await stream.WriteAsync(bytes);
+            });
+        }
 
-        await zipWriter.DisposeAsync();
         ms.Position = 0;
 
         using var zip = new ZipArchive(ms, ZipArchiveMode.Read, leaveOpen: false);
@@ -60,8 +68,7 @@ public class ZipWriterTests
         var buffer = new byte[entry.Length];
         var read = await zipStream.ReadAsync(buffer, 0, buffer.Length);
 
-        var expected = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
-        Assert.Equal(expected, buffer);
+        Assert.Equal(bytes, buffer);
     }
 
     [Theory]

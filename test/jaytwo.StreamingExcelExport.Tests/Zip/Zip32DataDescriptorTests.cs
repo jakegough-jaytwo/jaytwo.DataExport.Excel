@@ -11,8 +11,8 @@ public class Zip32DataDescriptorTests
     public void WriteTo_WritesCorrectSignature()
     {
         var bytes = CreateDescriptorBytes();
-        var parsed = ParseZip32DataDescriptor(bytes);
-        Assert.Equal(Zip32DataDescriptor.Signature, parsed.Signature);
+        var parsed = ParseDescriptor(bytes);
+        Assert.Equal(Zip32DataDescriptor.KnownSignature, parsed.Signature);
     }
 
     [Fact]
@@ -20,7 +20,7 @@ public class Zip32DataDescriptorTests
     {
         uint crc = 0xDEADBEEF;
         var bytes = CreateDescriptorBytes(crc: crc);
-        var parsed = ParseZip32DataDescriptor(bytes);
+        var parsed = ParseDescriptor(bytes);
         Assert.Equal(crc, parsed.Crc32);
     }
 
@@ -29,7 +29,7 @@ public class Zip32DataDescriptorTests
     {
         uint size = 123456;
         var bytes = CreateDescriptorBytes(compressedSize: size);
-        var parsed = ParseZip32DataDescriptor(bytes);
+        var parsed = ParseDescriptor(bytes);
 
         Assert.Equal(size, parsed.CompressedSize);
     }
@@ -39,7 +39,7 @@ public class Zip32DataDescriptorTests
     {
         uint size = 123456;
         var bytes = CreateDescriptorBytes(uncompressedSize: size);
-        var parsed = ParseZip32DataDescriptor(bytes);
+        var parsed = ParseDescriptor(bytes);
 
         Assert.Equal(size, parsed.UncompressedSize);
     }
@@ -61,37 +61,23 @@ public class Zip32DataDescriptorTests
 
     // --- Helpers ---
 
-    private static byte[] CreateDescriptorBytes(uint crc = 0, uint compressedSize = 0, uint uncompressedSize = 0)
+    private static byte[] CreateDescriptorBytes(
+        uint crc = 123,
+        uint compressedSize = 456,
+        uint uncompressedSize = 789)
     {
-        var descriptor = new Zip32DataDescriptor
-        {
-            Crc32 = crc,
-            CompressedSize = compressedSize,
-            UncompressedSize = uncompressedSize,
-        };
-
+        var entry = CreateDescriptor(crc, compressedSize, uncompressedSize);
         using var ms = new MemoryStream();
-        descriptor.WriteTo(ms);
+        entry.WriteTo(ms);
         return ms.ToArray();
     }
 
-    private static (uint Signature, uint Crc32, uint CompressedSize, uint UncompressedSize)
-        ParseZip32DataDescriptor(byte[] bytes)
-    {
-        const int signatureOffset = 0;
-        const int signatureLength = 4;
-        const int crcOffset = signatureOffset + signatureLength;
-        const int crcLength = 4;
-        const int compressedSizeOffset = crcOffset + crcLength;
-        const int compressedSizeLength = 4;
-        const int uncompressedSizeOffset = compressedSizeOffset + compressedSizeLength;
-        //const int uncompressedSizeLength = 4;
+    private static Zip32DataDescriptor CreateDescriptor(
+        uint crc = 123,
+        uint compressedSize = 456,
+        uint uncompressedSize = 789)
+        => Zip32DataDescriptor.CreateDefault(crc, compressedSize, uncompressedSize);
 
-        uint signature = BitConverter.ToUInt32(bytes, 0);
-        uint crc32 = BitConverter.ToUInt32(bytes, crcOffset);
-        uint compressed = BitConverter.ToUInt32(bytes, compressedSizeOffset);
-        uint uncompressed = BitConverter.ToUInt32(bytes, uncompressedSizeOffset);
-
-        return (signature, crc32, compressed, uncompressed);
-    }
+    private static Zip32DataDescriptor ParseDescriptor(byte[] bytes)
+        => Zip32DataDescriptor.Parse(bytes);
 }

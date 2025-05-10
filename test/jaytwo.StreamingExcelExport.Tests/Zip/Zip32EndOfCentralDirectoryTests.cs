@@ -24,7 +24,7 @@ public class Zip32EndOfCentralDirectoryTests
     {
         var bytes = CreateEocdBytes();
         var parsed = ParseZip32EndOfCentralDirectory(bytes);
-        Assert.Equal(Zip32EndOfCentralDirectory.Signature, parsed.Signature);
+        Assert.Equal(Zip32EndOfCentralDirectory.KnownSignature, parsed.Signature);
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public class Zip32EndOfCentralDirectoryTests
         var bytes = CreateEocdBytes(totalEntries: expected);
         var parsed = ParseZip32EndOfCentralDirectory(bytes);
 
-        Assert.Equal(expected, parsed.TotalEntriesOnDisk);
+        Assert.Equal(expected, parsed.TotalEntriesOnThisDisk);
         Assert.Equal(expected, parsed.TotalEntries);
     }
 
@@ -67,7 +67,7 @@ public class Zip32EndOfCentralDirectoryTests
         var bytes = CreateEocdBytes(comment: null);
         var parsed = ParseZip32EndOfCentralDirectory(bytes);
 
-        Assert.Equal(0, parsed.CommentLength);
+        Assert.Equal(0, parsed.CommentLength!.Value);
         Assert.Equal(string.Empty, parsed.Comment);
     }
 
@@ -91,59 +91,14 @@ public class Zip32EndOfCentralDirectoryTests
         uint size = 100,
         uint offset = 200,
         string? comment = "default comment")
-    {
-        return new Zip32EndOfCentralDirectory
-        {
-            TotalEntries = totalEntries,
-            CentralDirectorySize = size,
-            CentralDirectoryOffset = offset,
-            Comment = comment,
-        };
-    }
+        => Zip32EndOfCentralDirectory.CreateDefault(
+            totalEntries: totalEntries,
+            centralDirectorySize: size,
+            centralDirectoryOffset: offset,
+            comment: comment);
 
-    private static (
-        uint Signature,
-        ushort TotalEntriesOnDisk,
-        ushort TotalEntries,
-        uint CentralDirectorySize,
-        uint CentralDirectoryOffset,
-        ushort CommentLength,
-        string Comment)
-        ParseZip32EndOfCentralDirectory(byte[] bytes)
-    {
-        if (bytes.Length < 22)
-        {
-            throw new InvalidOperationException("EOCD record is too short.");
-        }
-
-        const int signatureOffset = 0;
-        const int signatureLength = 4;
-        const int diskNumberOffset = signatureOffset + signatureLength;
-        const int diskNumberLength = 2;
-        const int startDiskOffset = diskNumberOffset + diskNumberLength;
-        const int startDiskLength = 2;
-        const int entriesOnDiskOffset = startDiskOffset + startDiskLength;
-        const int entriesOnDiskLength = 2;
-        const int totalEntriesOffset = entriesOnDiskOffset + entriesOnDiskLength;
-        const int totalEntriesLength = 2;
-        const int centralDirectorySizeOffset = totalEntriesOffset + totalEntriesLength;
-        const int centralDirectorySizeLength = 4;
-        const int centralDirectoryOfffsetOffset = centralDirectorySizeOffset + centralDirectorySizeLength;
-        const int centralDirectoryOfffsetLength = 4;
-        const int commentLengthOffset = centralDirectoryOfffsetOffset + centralDirectoryOfffsetLength;
-        const int commentLengthLength = 2;
-        const int commmentOffset = commentLengthOffset + commentLengthLength;
-
-        uint signature = BitConverter.ToUInt32(bytes, signatureOffset);
-        ushort entriesOnDisk = BitConverter.ToUInt16(bytes, entriesOnDiskOffset);
-        ushort totalEntries = BitConverter.ToUInt16(bytes, totalEntriesOffset);
-        var size = BitConverter.ToUInt32(bytes, centralDirectorySizeOffset);
-        var offset = BitConverter.ToUInt32(bytes, centralDirectoryOfffsetOffset);
-        var commentLength = BitConverter.ToUInt16(bytes, commentLengthOffset);
-        string comment = Encoding.UTF8.GetString(bytes, commmentOffset, commentLength);
-
-        return (signature, entriesOnDisk, totalEntries, size, offset, commentLength, comment);
-    }
+    private static Zip32EndOfCentralDirectory ParseZip32EndOfCentralDirectory(byte[] bytes)
+        => Zip32EndOfCentralDirectory.Parse(bytes);
 
     private byte[] CreateEocdBytes(
         ushort totalEntries = 1,

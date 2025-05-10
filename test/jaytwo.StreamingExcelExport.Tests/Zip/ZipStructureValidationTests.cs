@@ -45,9 +45,9 @@ public class ZipStructureValidationTests
         byte[] zipBytes = await CreateZipPackageBytes(content, filename, useZip64: false);
 
         // Find all signature positions
-        var localHeaderPos = FindSignature(zipBytes, Zip32LocalFileHeader.Signature);
+        var localHeaderPos = FindSignature(zipBytes, Zip32LocalFileHeader.KnownSignature);
         var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
-        var eocdPos = FindSignature(zipBytes, Zip32EndOfCentralDirectory.Signature);
+        var eocdPos = FindSignature(zipBytes, Zip32EndOfCentralDirectory.KnownSignature);
 
         Assert.True(localHeaderPos >= 0, "Local file header not found");
         Assert.True(centralDirPos > localHeaderPos, "Central directory must follow local file header");
@@ -76,11 +76,11 @@ public class ZipStructureValidationTests
         byte[] zipBytes = await CreateZipPackageBytes(content, filename, useZip64: true);
 
         // Signature positions
-        int localHeaderPos = FindSignature(zipBytes, Zip64LocalFileHeader.Signature);
+        int localHeaderPos = FindSignature(zipBytes, Zip64LocalFileHeader.KnownSignature);
         int centralDirPos = FindSignature(zipBytes, Zip64CentralDirectoryEntry.KnownSignature);
-        int zip64EocdPos = FindSignature(zipBytes, Zip64EndOfCentralDirectory.Signature);
-        int zip64LocatorPos = FindSignature(zipBytes, Zip64EndOfCentralDirectoryLocator.Signature);
-        int eocdPos = FindSignature(zipBytes, Zip32EndOfCentralDirectory.Signature);
+        int zip64EocdPos = FindSignature(zipBytes, Zip64EndOfCentralDirectory.KnownSignature);
+        int zip64LocatorPos = FindSignature(zipBytes, Zip64EndOfCentralDirectoryLocator.KnownSignature);
+        int eocdPos = FindSignature(zipBytes, Zip32EndOfCentralDirectory.KnownSignature);
 
         Assert.True(localHeaderPos >= 0, "Local file header not found");
         Assert.True(centralDirPos > localHeaderPos, "Central directory must follow local file header");
@@ -108,24 +108,6 @@ public class ZipStructureValidationTests
     [InlineData(257)]
     [InlineData(65536)]
     [InlineData(65537)]
-    public async Task Zip32_CentralDirectory_CompressedSizeMatchesUncompressedSizeMatches(int length)
-    {
-        byte[] content = GetRandomBytes(length);
-        byte[] zipBytes = await CreateZipPackageBytes(content, useZip64: false);
-
-        var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
-        Assert.True(centralDirPos >= 0);
-
-        uint uncompressedSize = BitConverter.ToUInt32(zipBytes, centralDirPos + 24);
-        uint compressedSize = BitConverter.ToUInt32(zipBytes, centralDirPos + 20);
-        Assert.Equal(uncompressedSize, compressedSize);
-    }
-
-    [Theory]
-    [InlineData(256)]
-    [InlineData(257)]
-    [InlineData(65536)]
-    [InlineData(65537)]
     public async Task Zip32_CentralDirectory_UncompressedSizeMatches(int length)
     {
         byte[] content = GetRandomBytes(length);
@@ -134,7 +116,7 @@ public class ZipStructureValidationTests
         var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
         Assert.True(centralDirPos >= 0);
 
-        uint uncompressedSize = BitConverter.ToUInt32(zipBytes, centralDirPos + 24);
+        uint uncompressedSize = BitConverter.ToUInt32(zipBytes, centralDirPos + Zip32CentralDirectoryEntry.Offsets.UncompressedSizeOffset);
         Assert.Equal((uint)content.Length, uncompressedSize);
     }
 

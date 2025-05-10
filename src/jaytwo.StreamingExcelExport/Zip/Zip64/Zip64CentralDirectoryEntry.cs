@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using jaytwo.StreamingExcelExport.Zip.Zip32;
-using static jaytwo.StreamingExcelExport.Zip.ZipConstants;
 
 namespace jaytwo.StreamingExcelExport.Zip.Zip64;
 
@@ -13,6 +12,8 @@ internal class Zip64CentralDirectoryEntry : Zip32CentralDirectoryEntry, IZipPart
     public const uint SeeZip64ExtraFields = 0xFFFFFFFF;
 
     private const int Zip64ExtraFieldTotalLength = 28; // 2 + 2 + 8 + 8 + 8
+
+    public bool HasValidZip64ExtraField => ParseZip64ExtraField() != null;
 
     public ushort? ParsedZip64HeaderId => ParseZip64ExtraField()?.HeaderId;
 
@@ -36,10 +37,8 @@ internal class Zip64CentralDirectoryEntry : Zip32CentralDirectoryEntry, IZipPart
         set => UpdateZip64ExtraField(localHeaderOffset: value);
     }
 
-    public bool HasValidZip64ExtraField => ParseZip64ExtraField() != null;
-
     public static Zip64CentralDirectoryEntry CreateDefault(
-        ushort compressionMethod = CompressionMethods.NoCompression,
+        ushort compressionMethod,
         uint? crc32 = default,
         ulong? compressedSize = default,
         ulong? uncompressedSize = default,
@@ -78,15 +77,15 @@ internal class Zip64CentralDirectoryEntry : Zip32CentralDirectoryEntry, IZipPart
         return result;
     }
 
-    public static new Zip64CentralDirectoryEntry Parse(byte[] bytes, bool validateLength = false)
+    public static new Zip64CentralDirectoryEntry Parse(byte[] bytes, int offset = 0)
     {
         var result = new Zip64CentralDirectoryEntry();
-        Load(result, bytes, validateLength);
+        Load(result, bytes, offset);
         return result;
     }
 
     public override string ToString() =>
-        $"CDR64[\"{FileName}\", CRC={Crc32}, Size={Zip64CompressedSize}, Offset={Zip64LocalHeaderOffset}]";
+        $"CDE64[\"{FileName}\", CRC={Crc32}, Size={Zip64CompressedSize}, Offset={Zip64LocalHeaderOffset}]";
 
     private void UpdateZip64ExtraField(ulong? uncompressedSize = default, ulong? compressedSize = default, ulong? localHeaderOffset = default)
     {

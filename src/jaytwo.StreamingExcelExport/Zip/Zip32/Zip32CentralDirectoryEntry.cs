@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Text;
-using static jaytwo.StreamingExcelExport.Zip.ZipConstants;
 
 namespace jaytwo.StreamingExcelExport.Zip.Zip32;
 
@@ -50,7 +49,7 @@ internal class Zip32CentralDirectoryEntry : IZipPart
     public string? FileComment { get; set; }
 
     public static Zip32CentralDirectoryEntry CreateDefault(
-        ushort compressionMethod = CompressionMethods.NoCompression,
+        ushort compressionMethod,
         uint? crc32 = default,
         uint? compressedSize = default,
         uint? uncompressedSize = default,
@@ -77,8 +76,11 @@ internal class Zip32CentralDirectoryEntry : IZipPart
             ExtraField = Array.Empty<byte>(),
         };
 
-        result.FileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
-        result.FileNameLength = (ushort)Encoding.UTF8.GetByteCount(fileName);
+        if (!string.IsNullOrEmpty(fileName))
+        {
+            result.FileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
+            result.FileNameLength = (ushort)Encoding.UTF8.GetByteCount(fileName);
+        }
 
         fileComment ??= string.Empty;
         result.FileComment = fileComment;
@@ -138,45 +140,42 @@ internal class Zip32CentralDirectoryEntry : IZipPart
     }
 
     public override string ToString() =>
-        $"CDR[\"{FileName}\", CRC={Crc32}, Size={CompressedSize}, Offset={LocalHeaderOffset}]";
+        $"CDE32[\"{FileName}\", CRC={Crc32}, Size={CompressedSize}, Offset={LocalHeaderOffset}]";
 
-    internal static Zip32CentralDirectoryEntry Parse(byte[] bytes, bool validateLength = false)
+    internal static Zip32CentralDirectoryEntry Parse(byte[] bytes, int offset = 0)
     {
         var result = new Zip32CentralDirectoryEntry();
-        Load(result, bytes, validateLength);
+        Load(result, bytes, offset);
         return result;
     }
 
-    protected static void Load(Zip32CentralDirectoryEntry result, byte[] bytes, bool validateLength = false)
+    protected static void Load(Zip32CentralDirectoryEntry result, byte[] bytes, int offset = 0)
     {
         // not validating byte length here, it's still useful to parse as much as we can for debugging
-        result.Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset);
-        result.VersionMadeBy = BitConverter.ToUInt16(bytes, Offsets.VersionMadeByOffset);
-        result.VersionNeededToExtract = BitConverter.ToUInt16(bytes, Offsets.VersionNeededToExtractOffset);
-        result.GeneralPurposeBitFlag = BitConverter.ToUInt16(bytes, Offsets.GeneralPurposeBitFlagOffset);
-        result.CompressionMethod = BitConverter.ToUInt16(bytes, Offsets.CompressionMethodOffset);
-        result.LastModTime = BitConverter.ToUInt16(bytes, Offsets.LastModTimeOffset);
-        result.LastModDate = BitConverter.ToUInt16(bytes, Offsets.LastModDateOffset);
-        result.Crc32 = BitConverter.ToUInt32(bytes, Offsets.CrcOffset);
-        result.CompressedSize = BitConverter.ToUInt32(bytes, Offsets.CompressedSizeOffset);
-        result.UncompressedSize = BitConverter.ToUInt32(bytes, Offsets.UncompressedSizeOffset);
-        result.FileNameLength = BitConverter.ToUInt16(bytes, Offsets.FileNameLengthOffset);
-        result.ExtraFieldLength = BitConverter.ToUInt16(bytes, Offsets.ExtraFieldLengthOffset);
-        result.FileCommentLength = BitConverter.ToUInt16(bytes, Offsets.CommentLengthOffset);
-        result.DiskNumberStart = BitConverter.ToUInt16(bytes, Offsets.DiskNumberStartOffset);
-        result.InternalFileAttributes = BitConverter.ToUInt16(bytes, Offsets.InternalFileAttributesOffset);
-        result.ExternalFileAttributes = BitConverter.ToUInt32(bytes, Offsets.ExternalFileAttributesOffset);
-        result.LocalHeaderOffset = BitConverter.ToUInt32(bytes, Offsets.LocalHeaderOffsetOffset);
-        result.FileName = Encoding.UTF8.GetString(bytes, Offsets.FileNameOffset, (int)result.FileNameLength);
+        result.Signature = BitConverter.ToUInt32(bytes, offset + Offsets.SignatureOffset);
+        result.VersionMadeBy = BitConverter.ToUInt16(bytes, offset + Offsets.VersionMadeByOffset);
+        result.VersionNeededToExtract = BitConverter.ToUInt16(bytes, offset + Offsets.VersionNeededToExtractOffset);
+        result.GeneralPurposeBitFlag = BitConverter.ToUInt16(bytes, offset + Offsets.GeneralPurposeBitFlagOffset);
+        result.CompressionMethod = BitConverter.ToUInt16(bytes, offset + Offsets.CompressionMethodOffset);
+        result.LastModTime = BitConverter.ToUInt16(bytes, offset + Offsets.LastModTimeOffset);
+        result.LastModDate = BitConverter.ToUInt16(bytes, offset + Offsets.LastModDateOffset);
+        result.Crc32 = BitConverter.ToUInt32(bytes, offset + Offsets.CrcOffset);
+        result.CompressedSize = BitConverter.ToUInt32(bytes, offset + Offsets.CompressedSizeOffset);
+        result.UncompressedSize = BitConverter.ToUInt32(bytes, offset + Offsets.UncompressedSizeOffset);
+        result.FileNameLength = BitConverter.ToUInt16(bytes, offset + Offsets.FileNameLengthOffset);
+        result.ExtraFieldLength = BitConverter.ToUInt16(bytes, offset + Offsets.ExtraFieldLengthOffset);
+        result.FileCommentLength = BitConverter.ToUInt16(bytes, offset + Offsets.CommentLengthOffset);
+        result.DiskNumberStart = BitConverter.ToUInt16(bytes, offset + Offsets.DiskNumberStartOffset);
+        result.InternalFileAttributes = BitConverter.ToUInt16(bytes, offset + Offsets.InternalFileAttributesOffset);
+        result.ExternalFileAttributes = BitConverter.ToUInt32(bytes, offset + Offsets.ExternalFileAttributesOffset);
+        result.LocalHeaderOffset = BitConverter.ToUInt32(bytes, offset + Offsets.LocalHeaderOffsetOffset);
+        result.FileName = Encoding.UTF8.GetString(bytes, offset + Offsets.FileNameOffset, (int)result.FileNameLength);
 
-        if (result.ExtraFieldLength > 0)
-        {
-            int extraFieldOffset = Offsets.GetExtraFieldOffset(result.FileNameLength.Value);
-            result.ExtraField = new byte[result.ExtraFieldLength.Value];
-            Buffer.BlockCopy(bytes, extraFieldOffset, result.ExtraField, 0, result.ExtraFieldLength.Value);
-        }
+        int extraFieldOffset = offset + Offsets.GetExtraFieldOffset(result.FileNameLength.Value);
+        result.ExtraField = new byte[result.ExtraFieldLength.Value];
+        Buffer.BlockCopy(bytes, extraFieldOffset, result.ExtraField, 0, result.ExtraFieldLength.Value);
 
-        int commentOffset = Offsets.GetCommentOffset(result.FileNameLength.Value, result.ExtraFieldLength.Value);
+        int commentOffset = offset + Offsets.GetCommentOffset(result.FileNameLength.Value, result.ExtraFieldLength.Value);
         result.FileComment = Encoding.UTF8.GetString(bytes, commentOffset, (int)result.FileCommentLength);
     }
 

@@ -178,7 +178,9 @@ public class StreamingExcelExporterTests
         using (var fileStream = new FileStream(outputFileName, FileMode.Create, FileAccess.Write))
         {
             // Act
-            await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: 200, sheetCount: 5);
+            //await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: 207, sheetCount: 1);
+            //await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: 208, sheetCount: 1);
+            await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: 500, sheetCount: 3);
         }
 
         Process.Start("explorer", outputFileName);
@@ -227,7 +229,8 @@ public class StreamingExcelExporterTests
             {
                 var columnLayout = new Dictionary<string, ColumnLayout>();
                 columnLayout["Name"] = new ColumnLayout() { ColumnWidth = 30 };
-                columnLayout["Age"] = new ColumnLayout() { ColumnWidth = 15, HorizontalAlignment = HorizontalAlignmentStyles.Center };
+                columnLayout["Age"] = new ColumnLayout() { ColumnWidth = 5, HorizontalAlignment = HorizontalAlignmentStyles.Center };
+                columnLayout["BirthDate"] = new ColumnLayout() { ColumnWidth = 20 };
 
                 await exporter.WriteSheetAsync(
                     PersonFactory.GeneratePeople(rowsPerSheet),

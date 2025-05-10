@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using Force.Crc32;
@@ -36,28 +37,38 @@ internal abstract class ZipWriter : IZipWriter
 
     public async Task WriteFileAsync(string fileName, string? comment, Func<Stream, Task> writeFileCallback)
     {
+        var compressionMethod = ZipConstants.CompressionMethods.NoCompression;
+
         var localHeaderOffset = (uint)_outputStream.Position;
-        WriteLocalFileHeader(fileName);
+        WriteLocalFileHeader(compressionMethod, fileName);
 
         uint crc32 = 0;
+        long uncompressedSize = 0;
         var startPosition = _outputStream.Position;
-        using (var hashSiphon = HashSiphonStream.CreateWrite(_outputStream, () => new Crc32Algorithm(), leaveInnerStreamOpen: true))
+        //using (var deflateStream = new DeflateStream(_outputStream, CompressionMode.Compress, leaveOpen: true))
         {
-            await writeFileCallback(hashSiphon);
-            hashSiphon.Flush(finalizeHash: true);
-            crc32 = BitConverter.ToUInt32(hashSiphon.Hash!.Reverse().ToArray()); // i have no idea why the bytes have to be reversed here
+            using (var hashSiphon = HashSiphonStream.CreateWrite(_outputStream, () => new Crc32Algorithm(), leaveInnerStreamOpen: true))
+            {
+                await writeFileCallback(hashSiphon);
+
+                hashSiphon.Flush(finalizeHash: true);
+                //deflateStream.Flush();
+
+                crc32 = BitConverter.ToUInt32(hashSiphon.Hash!.Reverse().ToArray()); // i have no idea why the bytes have to be reversed here
+                uncompressedSize = hashSiphon.BytesWritten;
+            }
         }
 
         var endPosition = _outputStream.Position;
-        var fileLength = endPosition - startPosition;
+        var compressedSize = endPosition - startPosition;
 
-        WriteDataDescriptor(crc32, fileLength, fileLength);
+        WriteDataDescriptor(crc32, compressedSize, uncompressedSize);
 
         _entries.Add(BuildCentralDirectoryEntry(
-            ZipConstants.CompressionMethods.NoCompression,
+            compressionMethod,
             fileName,
-            fileLength,
-            fileLength,
+            compressedSize,
+            uncompressedSize,
             comment,
             crc32,
             localHeaderOffset));
@@ -66,7 +77,7 @@ internal abstract class ZipWriter : IZipWriter
     public void Dispose()
     {
         WriteZipCentralDirectory();
-        _outputStream.FlushAsync();
+        _outputStream.Flush();
 
         if (!_leaveOpen)
         {
@@ -85,10 +96,10 @@ internal abstract class ZipWriter : IZipWriter
         }
     }
 
-    protected abstract IZipPart BuildLocalFileHeader(string fileName);
+    protected abstract IZipPart BuildLocalFileHeader(ushort compressionMethod, string fileName);
 
-    protected void WriteLocalFileHeader(string fileName)
-        => WriteToOutput(BuildLocalFileHeader(fileName));
+    protected void WriteLocalFileHeader(ushort compressionMethod, string fileName)
+        => WriteToOutput(BuildLocalFileHeader(compressionMethod, fileName));
 
     protected abstract IZipPart BuildDataDescriptor(uint crc32, long compressedSize, long uncompressedSize);
 
@@ -105,13 +116,11 @@ internal abstract class ZipWriter : IZipWriter
         long localHeaderOffset);
 
     protected void WriteZip32EndOfCentralDirectory(int totalEntries, long centralDirectoryOffset, long centralDirectorySize, string? comment)
-        => WriteToOutput(new Zip32EndOfCentralDirectory
-        {
-            TotalEntries = (ushort)totalEntries,
-            CentralDirectoryOffset = (uint)centralDirectoryOffset,
-            CentralDirectorySize = (uint)centralDirectorySize,
-            Comment = comment,
-        });
+        => WriteToOutput(Zip32EndOfCentralDirectory.CreateDefault(
+            totalEntries: (ushort)totalEntries,
+            centralDirectorySize: (uint)centralDirectorySize,
+            centralDirectoryOffset: (uint)centralDirectoryOffset,
+            comment: comment));
 
     protected void WriteZipCentralDirectoryEntries(out int totalEntries, out long startPosition, out long endPosition)
     {

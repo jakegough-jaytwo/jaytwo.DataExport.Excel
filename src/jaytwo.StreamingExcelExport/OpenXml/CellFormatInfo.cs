@@ -161,7 +161,7 @@ internal class CellFormatInfo
         public const string String = "str";
         public const string? Numeric = null; // it's technically "n" but the spec is "assume numeric if omitted"
         public const string Boolean = "b";
-        public const string ISO8601Date = "d"; // "rarely used"
-        public const string SharedString = "s";
+        //public const string ISO8601Date = "d"; // "rarely used"
+        //public const string SharedString = "s";
     }
 }

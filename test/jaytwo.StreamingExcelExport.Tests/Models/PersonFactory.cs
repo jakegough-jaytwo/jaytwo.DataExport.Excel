@@ -9,9 +9,9 @@ public static class PersonFactory
     private static Faker<Person> PersonFaker { get; } = new Faker<Person>()
         .RuleFor(p => p.Name, f => f.Name.FullName())
         .RuleFor(p => p.BirthDate, f => f.Date.Between(new System.DateTime(1950, 1, 1), new System.DateTime(2000, 12, 31)))
-        .RuleFor(p => p.Age, f => f.Random.Int(18, 99))
-        .RuleFor(p => p.Biography, f => f.Lorem.Paragraphs(5))
-        .RuleFor(p => p.Lipsum, f => f.Lorem.Paragraphs(5));
+        //.RuleFor(p => p.Biography, f => f.Lorem.Paragraphs(5))
+        //.RuleFor(p => p.Lipsum, f => f.Lorem.Paragraphs(5))
+        .RuleFor(p => p.Age, f => f.Random.Int(18, 99));
 
     private static Faker<Pet> PetFaker { get; } = new Faker<Pet>()
         .RuleFor(p => p.Name, f => f.Name.FullName())

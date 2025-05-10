@@ -113,7 +113,8 @@ internal class WorksheetWriter<T> : XmlDocumentWriter
                 int rowNumber = 1;
                 await foreach (var itemValues in GetCellData(Context.Data, writeHeader: Context.IncludeHeader).WithCancellation(cancellationToken))
                 {
-                    await WriteRowElementAsync(rowNumber++, itemValues);
+                    await WriteRowElementAsync(rowNumber, itemValues);
+                    rowNumber++;
                 }
             }
         }

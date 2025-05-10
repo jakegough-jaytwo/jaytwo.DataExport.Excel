@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using jaytwo.StreamingExcelExport.Zip;
 using jaytwo.StreamingExcelExport.Zip.Zip32;
 using Xunit;
 
@@ -16,7 +17,7 @@ public class Zip32LocalFileHeaderTests
     {
         var bytes = CreateHeaderBytes("test.txt");
         var parsed = ParseZip32LocalFileHeader(bytes);
-        Assert.Equal(Zip32LocalFileHeader.Signature, parsed.Signature);
+        Assert.Equal(Zip32LocalFileHeader.KnownSignature, parsed.Signature);
     }
 
     [Fact]
@@ -44,14 +45,14 @@ public class Zip32LocalFileHeaderTests
     [Fact]
     public void WriteTo_ThrowsIfStreamIsNull()
     {
-        var header = new Zip32LocalFileHeader { FileName = "null.txt" };
+        var header = new Zip32LocalFileHeader();
         Assert.Throws<ArgumentException>(() => header.WriteTo(null!));
     }
 
     [Fact]
     public void WriteTo_ThrowsIfStreamNotWritable()
     {
-        var header = new Zip32LocalFileHeader { FileName = "read-only.txt" };
+        var header = new Zip32LocalFileHeader();
         var stream = new MemoryStream(new byte[64], writable: false);
         Assert.Throws<ArgumentException>(() => header.WriteTo(stream));
     }
@@ -60,55 +61,15 @@ public class Zip32LocalFileHeaderTests
 
     private static byte[] CreateHeaderBytes(string fileName)
     {
-        var header = new Zip32LocalFileHeader { FileName = fileName };
+        var header = Zip32LocalFileHeader.CreateDefault(
+            compressionMethod: ZipConstants.CompressionMethods.NoCompression,
+            fileName: fileName);
+
         using var ms = new MemoryStream();
         header.WriteTo(ms);
         return ms.ToArray();
     }
 
-    private static (
-        uint Signature,
-        ushort VersionNeeded,
-        ushort Flags,
-        ushort CompressionMethod,
-        ushort LastModTime,
-        ushort LastModDate,
-        uint Crc32,
-        uint CompressedSize,
-        uint UncompressedSize,
-        ushort FileNameLength,
-        ushort ExtraFieldLength,
-        string FileName)
-        ParseZip32LocalFileHeader(byte[] bytes)
-    {
-        const int FixedHeaderLength = 30;
-
-        uint signature = BitConverter.ToUInt32(bytes, 0);
-        ushort version = BitConverter.ToUInt16(bytes, 4);
-        ushort flags = BitConverter.ToUInt16(bytes, 6);
-        ushort method = BitConverter.ToUInt16(bytes, 8);
-        ushort time = BitConverter.ToUInt16(bytes, 10);
-        ushort date = BitConverter.ToUInt16(bytes, 12);
-        uint crc = BitConverter.ToUInt32(bytes, 14);
-        uint compressed = BitConverter.ToUInt32(bytes, 18);
-        uint uncompressed = BitConverter.ToUInt32(bytes, 22);
-        ushort nameLen = BitConverter.ToUInt16(bytes, 26);
-        ushort extraLen = BitConverter.ToUInt16(bytes, 28);
-
-        string fileName = Encoding.UTF8.GetString(bytes, FixedHeaderLength, nameLen);
-
-        return (
-            signature,
-            version,
-            flags,
-            method,
-            time,
-            date,
-            crc,
-            compressed,
-            uncompressed,
-            nameLen,
-            extraLen,
-            fileName);
-    }
+    private static Zip32LocalFileHeader ParseZip32LocalFileHeader(byte[] bytes)
+        => Zip32LocalFileHeader.Parse(bytes);
 }

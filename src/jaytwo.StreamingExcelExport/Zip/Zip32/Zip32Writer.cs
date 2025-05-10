@@ -10,11 +10,11 @@ internal class Zip32Writer : ZipWriter
     {
     }
 
-    protected override IZipPart BuildLocalFileHeader(string fileName)
-        => new Zip32LocalFileHeader { FileName = fileName };
+    protected override IZipPart BuildLocalFileHeader(ushort compressionMethod, string fileName)
+        => Zip32LocalFileHeader.CreateDefault(compressionMethod, fileName);
 
     protected override IZipPart BuildDataDescriptor(uint crc32, long compressedSize, long uncompressedSize)
-        => new Zip32DataDescriptor { Crc32 = crc32, CompressedSize = (uint)compressedSize, UncompressedSize = (uint)uncompressedSize, };
+        => Zip32DataDescriptor.CreateDefault(crc32: crc32, compressedSize: (ushort)compressedSize, uncompressedSize: (ushort)uncompressedSize);
 
     protected override IZipPart BuildCentralDirectoryEntry(
         ushort compressionMethod,

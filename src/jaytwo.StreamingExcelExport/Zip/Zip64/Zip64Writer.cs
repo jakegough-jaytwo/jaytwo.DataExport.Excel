@@ -10,11 +10,11 @@ internal class Zip64Writer : ZipWriter
     {
     }
 
-    protected override IZipPart BuildLocalFileHeader(string fileName)
-        => new Zip64LocalFileHeader { FileName = fileName };
+    protected override IZipPart BuildLocalFileHeader(ushort compressionMethod, string fileName)
+        => Zip64LocalFileHeader.CreateDefault(compressionMethod, fileName);
 
     protected override IZipPart BuildDataDescriptor(uint crc32, long compressedSize, long uncompressedSize)
-        => new Zip64DataDescriptor { Crc32 = crc32, CompressedSize = (ulong)compressedSize, UncompressedSize = (ulong)uncompressedSize };
+        => Zip64DataDescriptor.CreateDefault(crc32: crc32, compressedSize: (ulong)compressedSize, uncompressedSize: (ulong)uncompressedSize);
 
     protected override IZipPart BuildCentralDirectoryEntry(
         ushort compressionMethod,
@@ -64,16 +64,14 @@ internal class Zip64Writer : ZipWriter
     }
 
     protected void WriteZip64EndOfCentralDirectoryLocator(long zip64EndOfCentralDirectoryOffset)
-        => WriteToOutput(new Zip64EndOfCentralDirectoryLocator { Zip64EndOfCentralDirectoryOffset = (ulong)zip64EndOfCentralDirectoryOffset });
+        => WriteToOutput(Zip64EndOfCentralDirectoryLocator.CreateDefault((ulong)zip64EndOfCentralDirectoryOffset));
 
     protected void WriteZip64EndOfCentralDirectory(int totalEntries, long centralDirectoryOffset, long centralDirectorySize, string comment, out long startPosition, out long endPosition)
         => WriteToOutput(
-            new Zip64EndOfCentralDirectory
-            {
-                TotalEntries = (uint)totalEntries,
-                CentralDirectoryOffset = (ulong)centralDirectoryOffset,
-                CentralDirectorySize = (ulong)centralDirectorySize,
-            },
+            Zip64EndOfCentralDirectory.CreateDefault(
+                totalEntries: (uint)totalEntries,
+                centralDirectoryOffset: (ulong)centralDirectoryOffset,
+                centralDirectorySize: (ulong)centralDirectorySize),
             out startPosition,
             out endPosition);
 }

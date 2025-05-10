@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using jaytwo.StreamingExcelExport.Zip;
 using jaytwo.StreamingExcelExport.Zip.Zip64;
 using Xunit;
 
@@ -12,7 +13,7 @@ public class Zip64EndOfCentralDirectoryTests
     {
         var bytes = CreateEocd64Bytes();
         var parsed = ParseZip64EndOfCentralDirectory(bytes);
-        Assert.Equal(Zip64EndOfCentralDirectory.Signature, parsed.Signature);
+        Assert.Equal(Zip64EndOfCentralDirectory.KnownSignature, parsed.Signature);
     }
 
     [Fact]
@@ -21,8 +22,8 @@ public class Zip64EndOfCentralDirectoryTests
         var bytes = CreateEocd64Bytes();
         var parsed = ParseZip64EndOfCentralDirectory(bytes);
 
-        Assert.Equal(0x2D, parsed.VersionMadeBy); // 0x2D == 45
-        Assert.Equal(0x2D, parsed.VersionNeededToExtract);
+        Assert.Equal(ZipConstants.Versions.Version45, parsed.VersionMadeBy!.Value);
+        Assert.Equal(ZipConstants.Versions.Version45, parsed.VersionNeededToExtract!.Value);
     }
 
     [Fact]
@@ -32,7 +33,7 @@ public class Zip64EndOfCentralDirectoryTests
         var bytes = CreateEocd64Bytes(totalEntries: total);
         var parsed = ParseZip64EndOfCentralDirectory(bytes);
 
-        Assert.Equal(total, parsed.TotalEntriesOnDisk);
+        Assert.Equal(total, parsed.TotalEntriesOnThisDisk);
         Assert.Equal(total, parsed.TotalEntries);
     }
 
@@ -67,52 +68,16 @@ public class Zip64EndOfCentralDirectoryTests
 
     private static byte[] CreateEocd64Bytes(ulong totalEntries = 1, ulong size = 100, ulong offset = 200)
     {
-        var eocd = new Zip64EndOfCentralDirectory
-        {
-            TotalEntries = totalEntries,
-            CentralDirectorySize = size,
-            CentralDirectoryOffset = offset,
-        };
+        var eocd = Zip64EndOfCentralDirectory.CreateDefault(
+            totalEntries: totalEntries,
+            centralDirectorySize: size,
+            centralDirectoryOffset: offset);
 
         using var ms = new MemoryStream();
         eocd.WriteTo(ms);
         return ms.ToArray();
     }
 
-    private static (
-        uint Signature,
-        ulong EocdRecordSize,
-        ushort VersionMadeBy,
-        ushort VersionNeededToExtract,
-        uint DiskNumber,
-        uint StartDiskNumber,
-        ulong TotalEntriesOnDisk,
-        ulong TotalEntries,
-        ulong CentralDirectorySize,
-        ulong CentralDirectoryOffset)
-        ParseZip64EndOfCentralDirectory(byte[] bytes)
-    {
-        uint signature = BitConverter.ToUInt32(bytes, 0);
-        ulong size = BitConverter.ToUInt64(bytes, 4);
-        ushort versionMade = BitConverter.ToUInt16(bytes, 12);
-        ushort versionNeeded = BitConverter.ToUInt16(bytes, 14);
-        uint diskNumber = BitConverter.ToUInt32(bytes, 16);
-        uint startDisk = BitConverter.ToUInt32(bytes, 20);
-        ulong entriesThisDisk = BitConverter.ToUInt64(bytes, 24);
-        ulong totalEntries = BitConverter.ToUInt64(bytes, 32);
-        ulong cdSize = BitConverter.ToUInt64(bytes, 40);
-        ulong cdOffset = BitConverter.ToUInt64(bytes, 48);
-
-        return (
-            signature,
-            size,
-            versionMade,
-            versionNeeded,
-            diskNumber,
-            startDisk,
-            entriesThisDisk,
-            totalEntries,
-            cdSize,
-            cdOffset);
-    }
+    private static Zip64EndOfCentralDirectory ParseZip64EndOfCentralDirectory(byte[] bytes)
+        => Zip64EndOfCentralDirectory.Parse(bytes);
 }
