@@ -39,19 +39,28 @@ public class ZipWriterTests
     }
 
     [Theory]
-    [InlineData(256)]
-    [InlineData(65536)]
-    [InlineData(1000000)]
-    [InlineData(2000000)]
-    [InlineData(4000000)]
-    [InlineData(8000000)]
-    //[InlineData(16000000)]
-    //[InlineData(32000000)]
-    public async Task ZipWriter_VerifyEntryRoundTrip(int length)
+    [InlineData(true, 256)]
+    [InlineData(true, 65536)]
+    [InlineData(true, 1000000)]
+    [InlineData(true, 2000000)]
+    [InlineData(true, 4000000)]
+    [InlineData(true, 8000000)]
+    [InlineData(true, 16000000)]
+    [InlineData(true, 32000000)]
+    [InlineData(false, 256)]
+    [InlineData(false, 65536)]
+    [InlineData(false, 1000000)]
+    [InlineData(false, 2000000)]
+    [InlineData(false, 4000000)]
+    [InlineData(false, 8000000)]
+    [InlineData(false, 16000000)]
+    [InlineData(false, 32000000)]
+    public async Task ZipWriter_VerifyEntryRoundTrip(bool useZip64, int length)
     {
         using var ms = new MemoryStream();
         var bytes = Enumerable.Range(0, length).Select(i => (byte)(i % 256)).ToArray();
-        using (var zipWriter = ZipWriter.CreateZip32(ms, leaveOpen: true))
+        var expectedCrc = Crc32Helper.ComputeCrc(bytes);
+        using (var zipWriter = ZipWriter.Create(ms, leaveOpen: true, useZip64: useZip64))
         {
             await zipWriter.WriteFileAsync("data.bin", string.Empty, async stream =>
             {
@@ -65,10 +74,8 @@ public class ZipWriterTests
         var entry = zip.GetEntry("data.bin")!;
 
         using var zipStream = entry.Open();
-        var buffer = new byte[entry.Length];
-        var read = await zipStream.ReadAsync(buffer, 0, buffer.Length);
-
-        Assert.Equal(bytes, buffer);
+        var zipStreamCrc = Crc32Helper.ComputeCrc(zipStream);
+        Assert.Equal(expectedCrc, zipStreamCrc);
     }
 
     [Theory]

@@ -37,7 +37,7 @@ internal abstract class ZipWriter : IZipWriter
 
     public async Task WriteFileAsync(string fileName, string? comment, Func<Stream, Task> writeFileCallback)
     {
-        var compressionMethod = ZipConstants.CompressionMethods.NoCompression;
+        var compressionMethod = ZipConstants.CompressionMethods.Deflate;
 
         var localHeaderOffset = (uint)_outputStream.Position;
         WriteLocalFileHeader(compressionMethod, fileName);
@@ -45,18 +45,16 @@ internal abstract class ZipWriter : IZipWriter
         uint crc32 = 0;
         long uncompressedSize = 0;
         var startPosition = _outputStream.Position;
-        //using (var deflateStream = new DeflateStream(_outputStream, CompressionMode.Compress, leaveOpen: true))
+        using (var deflateStream = new DeflateStream(_outputStream, CompressionMode.Compress, leaveOpen: true))
+        using (var hashSiphon = HashSiphonStream.CreateWrite(deflateStream, () => new Crc32Algorithm(), leaveInnerStreamOpen: true))
         {
-            using (var hashSiphon = HashSiphonStream.CreateWrite(_outputStream, () => new Crc32Algorithm(), leaveInnerStreamOpen: true))
-            {
-                await writeFileCallback(hashSiphon);
+            await writeFileCallback(hashSiphon);
 
-                hashSiphon.Flush(finalizeHash: true);
-                //deflateStream.Flush();
+            hashSiphon.Flush(finalizeHash: true);
+            deflateStream.Flush();
 
-                crc32 = BitConverter.ToUInt32(hashSiphon.Hash!.Reverse().ToArray()); // i have no idea why the bytes have to be reversed here
-                uncompressedSize = hashSiphon.BytesWritten;
-            }
+            crc32 = BitConverter.ToUInt32(hashSiphon.Hash!.Reverse().ToArray()); // i have no idea why the bytes have to be reversed here
+            uncompressedSize = hashSiphon.BytesWritten;
         }
 
         var endPosition = _outputStream.Position;
