@@ -7,41 +7,48 @@ namespace jaytwo.StreamingExcelExport.Tests.Zip;
 
 public class Zip32DataDescriptorTests
 {
-    [Fact]
-    public void WriteTo_WritesCorrectSignature()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectSignature(uint value)
     {
-        var bytes = CreateDescriptorBytes();
-        var parsed = ParseDescriptor(bytes);
-        Assert.Equal(Zip32DataDescriptor.KnownSignature, parsed.Signature);
+        var bytes = new Zip32DataDescriptor() { Signature = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Signature);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectCrc32()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectCrc32(uint value)
     {
-        uint crc = 0xDEADBEEF;
-        var bytes = CreateDescriptorBytes(crc: crc);
-        var parsed = ParseDescriptor(bytes);
-        Assert.Equal(crc, parsed.Crc32);
+        var bytes = new Zip32DataDescriptor() { Crc32 = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Crc32);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectCompressedSize()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectCompressedSize(uint value)
     {
-        uint size = 123456;
-        var bytes = CreateDescriptorBytes(compressedSize: size);
-        var parsed = ParseDescriptor(bytes);
-
-        Assert.Equal(size, parsed.CompressedSize);
+        var bytes = new Zip32DataDescriptor() { CompressedSize = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.CompressedSize);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectUncompressedSize()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectUncompressedSize(uint value)
     {
-        uint size = 123456;
-        var bytes = CreateDescriptorBytes(uncompressedSize: size);
-        var parsed = ParseDescriptor(bytes);
-
-        Assert.Equal(size, parsed.UncompressedSize);
+        var bytes = new Zip32DataDescriptor() { UncompressedSize = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.UncompressedSize);
     }
 
     [Fact]
@@ -61,23 +68,6 @@ public class Zip32DataDescriptorTests
 
     // --- Helpers ---
 
-    private static byte[] CreateDescriptorBytes(
-        uint crc = 123,
-        uint compressedSize = 456,
-        uint uncompressedSize = 789)
-    {
-        var entry = CreateDescriptor(crc, compressedSize, uncompressedSize);
-        using var ms = new MemoryStream();
-        entry.WriteTo(ms);
-        return ms.ToArray();
-    }
-
-    private static Zip32DataDescriptor CreateDescriptor(
-        uint crc = 123,
-        uint compressedSize = 456,
-        uint uncompressedSize = 789)
-        => Zip32DataDescriptor.CreateDefault(crc, compressedSize, uncompressedSize);
-
-    private static Zip32DataDescriptor ParseDescriptor(byte[] bytes)
-        => Zip32DataDescriptor.Parse(bytes);
+    private static bool TryParse(byte[] bytes, out Zip32DataDescriptor result)
+        => Zip32DataDescriptor.TryParse(bytes, out result);
 }

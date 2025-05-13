@@ -71,8 +71,10 @@ public class StreamingExcelExporterTests
         WriteFileSize(memoryStream.Length);
     }
 
-    [Fact]
-    public async Task Write_multiple_sheets_WritesExpectedRows()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Write_multiple_sheets_WritesExpectedRows(bool useZip64)
     {
         // Arrange
         var people = new List<Person>
@@ -88,7 +90,7 @@ public class StreamingExcelExporterTests
         };
 
         using var memoryStream = new MemoryStream();
-        using (var exporter = new StreamingExcelExporter(memoryStream))
+        using (var exporter = new StreamingExcelExporter(memoryStream, useZip64: useZip64))
         {
             // Act
             await exporter.WriteSheetAsync(people, "People");
@@ -167,8 +169,12 @@ public class StreamingExcelExporterTests
         WriteFileSize(fileStream.Length);
     }
 
-    [SkippableFact]
-    public async Task SanityCheck_LaunchesExcel()
+    [SkippableTheory]
+    [InlineData(10, 1, true)] // TODO: fix zip64
+    [InlineData(10, 1, false)]
+    [InlineData(500, 10, true)] // TODO: fix zip64
+    [InlineData(500, 10, false)]
+    public async Task SanityCheck_LaunchesExcel(int rows, int sheets, bool useZip64)
     {
         Skip.IfNot(Debugger.IsAttached, "Not Debugging");
         Skip.If(RuntimeInformation.Current.Platform != OSPlatform.Windows, "Not Running on Windows");
@@ -178,9 +184,7 @@ public class StreamingExcelExporterTests
         using (var fileStream = new FileStream(outputFileName, FileMode.Create, FileAccess.Write))
         {
             // Act
-            //await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: 207, sheetCount: 1);
-            //await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: 208, sheetCount: 1);
-            await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: 500, sheetCount: 3);
+            await BuildWorksheetSampleWorkSheet(fileStream, rowsPerSheet: rows, sheetCount: sheets, useZip64: useZip64);
         }
 
         Process.Start("explorer", outputFileName);
@@ -221,9 +225,9 @@ public class StreamingExcelExporterTests
         _output.WriteLine($"Stream Size: {length / (1024.0 * 1024.0):F2} MB");
     }
 
-    private async Task BuildWorksheetSampleWorkSheet(Stream outputStream, int rowsPerSheet = 10, int sheetCount = 2)
+    private async Task BuildWorksheetSampleWorkSheet(Stream outputStream, int rowsPerSheet = 10, int sheetCount = 2, bool useZip64 = true)
     {
-        using (var exporter = new StreamingExcelExporter(outputStream, useZip64: false))
+        using (var exporter = new StreamingExcelExporter(outputStream, useZip64: useZip64))
         {
             for (var i = 0; i < sheetCount; i++)
             {

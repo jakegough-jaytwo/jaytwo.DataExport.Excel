@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq.Expressions;
 using System.Text;
 using static jaytwo.StreamingExcelExport.Zip.ZipConstants;
 
@@ -35,26 +36,6 @@ internal class Zip32LocalFileHeader : IZipPart
 
     public byte[]? ExtraField { get; set; }
 
-    public static Zip32LocalFileHeader CreateDefault(ushort compressionMethod, string fileName)
-    {
-        return new Zip32LocalFileHeader
-        {
-            Signature = KnownSignature,
-            VersionNeededToExtract = ZipConstants.Versions.Version20,
-            GeneralPurposeBitFlag = ZipConstants.GeneralPurposeBitFlags.DataDescriptorFollows,
-            CompressionMethod = compressionMethod,
-            LastModTime = 0,
-            LastModDate = 0,
-            Crc32 = 0,
-            CompressedSize = 0,
-            UncompressedSize = 0,
-            FileName = fileName,
-            FileNameLength = (ushort)Encoding.UTF8.GetByteCount(fileName ?? string.Empty),
-            ExtraField = Array.Empty<byte>(),
-            ExtraFieldLength = 0,
-        };
-    }
-
     public static Zip32LocalFileHeader Parse(byte[] bytes)
     {
         var result = new Zip32LocalFileHeader();
@@ -62,63 +43,92 @@ internal class Zip32LocalFileHeader : IZipPart
         return result;
     }
 
-    public void WriteTo(Stream stream)
+    public void WriteTo(Stream stream, bool validate = true)
     {
         if (stream == null || !stream.CanWrite)
         {
             throw new ArgumentException("Stream must be writable.", nameof(stream));
         }
 
-        var fileNameBytes = Encoding.UTF8.GetBytes(FileName ?? throw new InvalidOperationException($"{nameof(FileName)} is required."));
-        if (FileNameLength != fileNameBytes.Length)
+        var fileNameBytes = Encoding.UTF8.GetBytes(ThrowIfNull(x => x.FileName) ?? string.Empty);
+        if (validate && FileNameLength != fileNameBytes.Length)
         {
-            throw new ArgumentException($"{nameof(FileNameLength)} must match actual byte length of {nameof(FileName)}.");
+            throw new InvalidOperationException($"{nameof(FileNameLength)} must match actual byte length of {nameof(FileName)}.");
         }
 
         var extraFieldBytes = ExtraField ?? Array.Empty<byte>();
-        if (ExtraFieldLength != extraFieldBytes.Length)
+        if (validate && ExtraFieldLength != extraFieldBytes.Length)
         {
-            throw new ArgumentException($"{nameof(ExtraFieldLength)} must match length of {nameof(ExtraField)}.");
+            throw new InvalidOperationException($"{nameof(ExtraFieldLength)} must match length of {nameof(ExtraField)}.");
         }
 
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write(Signature ?? throw new InvalidOperationException($"{nameof(Signature)} is required."));
-        writer.Write(VersionNeededToExtract ?? throw new InvalidOperationException($"{nameof(VersionNeededToExtract)} is required."));
-        writer.Write(GeneralPurposeBitFlag ?? throw new InvalidOperationException($"{nameof(GeneralPurposeBitFlag)} is required."));
-        writer.Write(CompressionMethod ?? throw new InvalidOperationException($"{nameof(CompressionMethod)} is required."));
-        writer.Write(LastModTime ?? throw new InvalidOperationException($"{nameof(LastModTime)} is required."));
-        writer.Write(LastModDate ?? throw new InvalidOperationException($"{nameof(LastModDate)} is required."));
-        writer.Write(Crc32 ?? throw new InvalidOperationException($"{nameof(Crc32)} is required."));
-        writer.Write(CompressedSize ?? throw new InvalidOperationException($"{nameof(CompressedSize)} is required."));
-        writer.Write(UncompressedSize ?? throw new InvalidOperationException($"{nameof(UncompressedSize)} is required."));
-        writer.Write(FileNameLength ?? throw new InvalidOperationException($"{nameof(FileNameLength)} is required."));
-        writer.Write(ExtraFieldLength ?? throw new InvalidOperationException($"{nameof(ExtraFieldLength)} is required."));
+        writer.Write(ThrowIfNull(x => Signature) ?? default);
+        writer.Write(ThrowIfNull(x => VersionNeededToExtract) ?? default);
+        writer.Write(ThrowIfNull(x => GeneralPurposeBitFlag) ?? default);
+        writer.Write(ThrowIfNull(x => CompressionMethod) ?? default);
+        writer.Write(ThrowIfNull(x => LastModTime) ?? default);
+        writer.Write(ThrowIfNull(x => LastModDate) ?? default);
+        writer.Write(ThrowIfNull(x => Crc32) ?? default);
+        writer.Write(ThrowIfNull(x => CompressedSize) ?? default);
+        writer.Write(ThrowIfNull(x => UncompressedSize) ?? default);
+        writer.Write(ThrowIfNull(x => FileNameLength) ?? default);
+        writer.Write(ThrowIfNull(x => ExtraFieldLength) ?? default);
         writer.Write(fileNameBytes);
         writer.Write(extraFieldBytes);
+
+        TValue ThrowIfNull<TValue>(Expression<Func<Zip32LocalFileHeader, TValue>> propertyExpression)
+            => ValidationHelper.EnsureNotNull(this, propertyExpression, validate);
     }
 
     public override string ToString() =>
         $"LFH32[\"{FileName}\", Size={CompressedSize}, CRC={Crc32}]";
 
-    internal static void Load(Zip32LocalFileHeader header, byte[] bytes)
+    internal static bool TryParse(byte[] bytes, out Zip32LocalFileHeader result, int offset = 0)
     {
-        header.Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset);
-        header.VersionNeededToExtract = BitConverter.ToUInt16(bytes, Offsets.VersionNeededToExtractOffset);
-        header.GeneralPurposeBitFlag = BitConverter.ToUInt16(bytes, Offsets.GeneralPurposeBitFlagOffset);
-        header.CompressionMethod = BitConverter.ToUInt16(bytes, Offsets.CompressionMethodOffset);
-        header.LastModTime = BitConverter.ToUInt16(bytes, Offsets.LastModTimeOffset);
-        header.LastModDate = BitConverter.ToUInt16(bytes, Offsets.LastModDateOffset);
-        header.Crc32 = BitConverter.ToUInt32(bytes, Offsets.CrcOffset);
-        header.CompressedSize = BitConverter.ToUInt32(bytes, Offsets.CompressedSizeOffset);
-        header.UncompressedSize = BitConverter.ToUInt32(bytes, Offsets.UncompressedSizeOffset);
-        header.FileNameLength = BitConverter.ToUInt16(bytes, Offsets.FileNameLengthOffset);
-        header.ExtraFieldLength = BitConverter.ToUInt16(bytes, Offsets.ExtraFieldLengthOffset);
+        result = new Zip32LocalFileHeader();
+        return TryLoad(result, bytes, offset);
+    }
 
-        header.FileName = Encoding.UTF8.GetString(bytes, Offsets.FileNameOffset, header.FileNameLength.Value);
+    internal static Zip32LocalFileHeader Parse(byte[] bytes, int offset = 0)
+    {
+        var result = new Zip32LocalFileHeader();
+        Load(result, bytes, offset);
+        return result;
+    }
 
-        int extraFieldOffset = Offsets.GetExtraFieldOffset(header.FileNameLength ?? 0);
-        header.ExtraField = new byte[header.ExtraFieldLength.Value];
-        Buffer.BlockCopy(bytes, extraFieldOffset, header.ExtraField, 0, header.ExtraFieldLength.Value);
+    protected static bool TryLoad(Zip32LocalFileHeader result, byte[] bytes, int offset = 0)
+    {
+        try
+        {
+            Load(result, bytes, offset);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    protected static void Load(Zip32LocalFileHeader result, byte[] bytes, int offset = 0)
+    {
+        result.Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset);
+        result.VersionNeededToExtract = BitConverter.ToUInt16(bytes, Offsets.VersionNeededToExtractOffset);
+        result.GeneralPurposeBitFlag = BitConverter.ToUInt16(bytes, Offsets.GeneralPurposeBitFlagOffset);
+        result.CompressionMethod = BitConverter.ToUInt16(bytes, Offsets.CompressionMethodOffset);
+        result.LastModTime = BitConverter.ToUInt16(bytes, Offsets.LastModTimeOffset);
+        result.LastModDate = BitConverter.ToUInt16(bytes, Offsets.LastModDateOffset);
+        result.Crc32 = BitConverter.ToUInt32(bytes, Offsets.CrcOffset);
+        result.CompressedSize = BitConverter.ToUInt32(bytes, Offsets.CompressedSizeOffset);
+        result.UncompressedSize = BitConverter.ToUInt32(bytes, Offsets.UncompressedSizeOffset);
+        result.FileNameLength = BitConverter.ToUInt16(bytes, Offsets.FileNameLengthOffset);
+        result.ExtraFieldLength = BitConverter.ToUInt16(bytes, Offsets.ExtraFieldLengthOffset);
+
+        result.FileName = Encoding.UTF8.GetString(bytes, Offsets.FileNameOffset, result.FileNameLength.Value);
+
+        int extraFieldOffset = Offsets.GetExtraFieldOffset(result.FileNameLength ?? 0);
+        result.ExtraField = new byte[result.ExtraFieldLength.Value];
+        Buffer.BlockCopy(bytes, extraFieldOffset, result.ExtraField, 0, result.ExtraFieldLength.Value);
     }
 
     internal static class Offsets

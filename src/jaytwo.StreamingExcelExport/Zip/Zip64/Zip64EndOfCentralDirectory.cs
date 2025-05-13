@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace jaytwo.StreamingExcelExport.Zip.Zip64;
@@ -30,46 +30,7 @@ internal class Zip64EndOfCentralDirectory : IZipPart
 
     public ulong? CentralDirectoryOffset { get; set; }
 
-    public static Zip64EndOfCentralDirectory CreateDefault(
-        ulong totalEntries = 0,
-        ulong centralDirectorySize = 0,
-        ulong centralDirectoryOffset = 0)
-    {
-        return new Zip64EndOfCentralDirectory
-        {
-            Signature = KnownSignature,
-            SizeOfEOCD = FixedSizeOfEOCD,
-            VersionMadeBy = ZipConstants.Versions.Version45,
-            VersionNeededToExtract = ZipConstants.Versions.Version45,
-            DiskNumber = 0,
-            CentralDirectoryStartDisk = 0,
-            TotalEntriesOnThisDisk = totalEntries,
-            TotalEntries = totalEntries,
-            CentralDirectorySize = centralDirectorySize,
-            CentralDirectoryOffset = centralDirectoryOffset,
-        };
-    }
-
-    public static Zip64EndOfCentralDirectory Parse(byte[] bytes)
-    {
-        var result = new Zip64EndOfCentralDirectory
-        {
-            Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset),
-            SizeOfEOCD = BitConverter.ToUInt64(bytes, Offsets.SizeOfEOCDOffset),
-            VersionMadeBy = BitConverter.ToUInt16(bytes, Offsets.VersionMadeByOffset),
-            VersionNeededToExtract = BitConverter.ToUInt16(bytes, Offsets.VersionNeededToExtractOffset),
-            DiskNumber = BitConverter.ToUInt32(bytes, Offsets.DiskNumberOffset),
-            CentralDirectoryStartDisk = BitConverter.ToUInt32(bytes, Offsets.CentralDirectoryStartDiskOffset),
-            TotalEntriesOnThisDisk = BitConverter.ToUInt64(bytes, Offsets.TotalEntriesOnThisDiskOffset),
-            TotalEntries = BitConverter.ToUInt64(bytes, Offsets.TotalEntriesOffset),
-            CentralDirectorySize = BitConverter.ToUInt64(bytes, Offsets.CentralDirectorySizeOffset),
-            CentralDirectoryOffset = BitConverter.ToUInt64(bytes, Offsets.CentralDirectoryOffsetOffset),
-        };
-
-        return result;
-    }
-
-    public void WriteTo(Stream stream)
+    public void WriteTo(Stream stream, bool validate = true)
     {
         if (stream == null || !stream.CanWrite)
         {
@@ -77,20 +38,63 @@ internal class Zip64EndOfCentralDirectory : IZipPart
         }
 
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write(Signature ?? throw new InvalidOperationException($"{nameof(Signature)} is required."));
-        writer.Write(SizeOfEOCD ?? throw new InvalidOperationException($"{nameof(SizeOfEOCD)} is required."));
-        writer.Write(VersionMadeBy ?? throw new InvalidOperationException($"{nameof(VersionMadeBy)} is required."));
-        writer.Write(VersionNeededToExtract ?? throw new InvalidOperationException($"{nameof(VersionNeededToExtract)} is required."));
-        writer.Write(DiskNumber ?? throw new InvalidOperationException($"{nameof(DiskNumber)} is required."));
-        writer.Write(CentralDirectoryStartDisk ?? throw new InvalidOperationException($"{nameof(CentralDirectoryStartDisk)} is required."));
-        writer.Write(TotalEntriesOnThisDisk ?? throw new InvalidOperationException($"{nameof(TotalEntriesOnThisDisk)} is required."));
-        writer.Write(TotalEntries ?? throw new InvalidOperationException($"{nameof(TotalEntries)} is required."));
-        writer.Write(CentralDirectorySize ?? throw new InvalidOperationException($"{nameof(CentralDirectorySize)} is required."));
-        writer.Write(CentralDirectoryOffset ?? throw new InvalidOperationException($"{nameof(CentralDirectoryOffset)} is required."));
+        writer.Write(ThrowIfNull(x => x.Signature) ?? default);
+        writer.Write(ThrowIfNull(x => x.SizeOfEOCD) ?? default);
+        writer.Write(ThrowIfNull(x => x.VersionMadeBy) ?? default);
+        writer.Write(ThrowIfNull(x => x.VersionNeededToExtract) ?? default);
+        writer.Write(ThrowIfNull(x => x.DiskNumber) ?? default);
+        writer.Write(ThrowIfNull(x => x.CentralDirectoryStartDisk) ?? default);
+        writer.Write(ThrowIfNull(x => x.TotalEntriesOnThisDisk) ?? default);
+        writer.Write(ThrowIfNull(x => x.TotalEntries) ?? default);
+        writer.Write(ThrowIfNull(x => x.CentralDirectorySize) ?? default);
+        writer.Write(ThrowIfNull(x => x.CentralDirectoryOffset) ?? default);
+
+        TValue ThrowIfNull<TValue>(Expression<Func<Zip64EndOfCentralDirectory, TValue>> propertyExpression)
+            => ValidationHelper.EnsureNotNull(this, propertyExpression, validate);
     }
 
     public override string ToString()
         => $"EOCD64[Entries={TotalEntries}, Size={CentralDirectorySize}, Offset={CentralDirectoryOffset}]";
+
+    internal static bool TryParse(byte[] bytes, out Zip64EndOfCentralDirectory result, int offset = 0)
+    {
+        result = new Zip64EndOfCentralDirectory();
+        return TryLoad(result, bytes, offset);
+    }
+
+    internal static Zip64EndOfCentralDirectory Parse(byte[] bytes, int offset = 0)
+    {
+        var result = new Zip64EndOfCentralDirectory();
+        Load(result, bytes, offset);
+        return result;
+    }
+
+    protected static bool TryLoad(Zip64EndOfCentralDirectory result, byte[] bytes, int offset = 0)
+    {
+        try
+        {
+            Load(result, bytes, offset);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    protected static void Load(Zip64EndOfCentralDirectory result, byte[] bytes, int offset = 0)
+    {
+        result.Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset);
+        result.SizeOfEOCD = BitConverter.ToUInt64(bytes, Offsets.SizeOfEOCDOffset);
+        result.VersionMadeBy = BitConverter.ToUInt16(bytes, Offsets.VersionMadeByOffset);
+        result.VersionNeededToExtract = BitConverter.ToUInt16(bytes, Offsets.VersionNeededToExtractOffset);
+        result.DiskNumber = BitConverter.ToUInt32(bytes, Offsets.DiskNumberOffset);
+        result.CentralDirectoryStartDisk = BitConverter.ToUInt32(bytes, Offsets.CentralDirectoryStartDiskOffset);
+        result.TotalEntriesOnThisDisk = BitConverter.ToUInt64(bytes, Offsets.TotalEntriesOnThisDiskOffset);
+        result.TotalEntries = BitConverter.ToUInt64(bytes, Offsets.TotalEntriesOffset);
+        result.CentralDirectorySize = BitConverter.ToUInt64(bytes, Offsets.CentralDirectorySizeOffset);
+        result.CentralDirectoryOffset = BitConverter.ToUInt64(bytes, Offsets.CentralDirectoryOffsetOffset);
+    }
 
     internal static class Offsets
     {

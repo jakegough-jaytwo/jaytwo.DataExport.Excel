@@ -28,7 +28,7 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
         string companyName = "My Company",
         string createdBy = "Me",
         DateTime? createdAtUtc = default,
-        bool useZip64 = true,
+        bool useZip64 = false,
         bool leaveInnerStreamOpen = true)
     {
         _zip = ZipWriter.Create(outputStream, leaveOpen: leaveInnerStreamOpen, useZip64: useZip64);
@@ -134,7 +134,7 @@ public class StreamingExcelExporter : IDisposable, IAsyncDisposable
             CloseOutput = false,
         };
 
-        await _zip.WriteFileAsync(
+        await _zip.WriteZipEntryAsync(
             fileName: context.ZipPackagePath,
             comment: string.Empty,
             writeFileCallback: async stream =>

@@ -1,9 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using jaytwo.StreamingExcelExport.Zip.Zip64;
 using Xunit;
 
@@ -11,76 +7,71 @@ namespace jaytwo.StreamingExcelExport.Tests.Zip;
 
 public class Zip64DataDescriptorTests
 {
-    [Fact]
-    public void WriteTo_WritesCorrectSignature()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectSignature(uint value)
     {
-        var bytes = CreateDescriptorBytes();
-        var parsed = ParseZip64DataDescriptor(bytes);
-        Assert.Equal(Zip64DataDescriptor.KnownSignature, parsed.Signature);
+        var bytes = new Zip64DataDescriptor() { Signature = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Signature);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectCrc32()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectCrc32(uint value)
     {
-        uint crc = 0xB16B00B5;
-        var bytes = CreateDescriptorBytes(crc: crc);
-        var parsed = ParseZip64DataDescriptor(bytes);
-
-        Assert.Equal(crc, parsed.Crc32);
+        var bytes = new Zip64DataDescriptor() { Crc32 = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Crc32);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectCompressedSize()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    [InlineData(0x0123456789ABCDEF)]
+    [InlineData(0xFFFFFFFFFFFFFFFF)]
+    public void WriteTo_WritesCorrectCompressedSize(ulong value)
     {
-        ulong size = 9876543210;
-        var bytes = CreateDescriptorBytes(compressedSize: size);
-        var parsed = ParseZip64DataDescriptor(bytes);
-
-        Assert.Equal(size, parsed.CompressedSize);
+        var bytes = new Zip64DataDescriptor() { CompressedSize = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.CompressedSize);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectUncompressedSize()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    [InlineData(0x0123456789ABCDEF)]
+    [InlineData(0xFFFFFFFFFFFFFFFF)]
+    public void WriteTo_WritesCorrectUncompressedSize(ulong value)
     {
-        ulong size = 9876543210;
-        var bytes = CreateDescriptorBytes(uncompressedSize: size);
-        var parsed = ParseZip64DataDescriptor(bytes);
-
-        Assert.Equal(size, parsed.UncompressedSize);
+        var bytes = new Zip64DataDescriptor() { UncompressedSize = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.UncompressedSize);
     }
 
     [Fact]
     public void WriteTo_ThrowsIfStreamIsNull()
     {
-        var descriptor = CreateDescriptor();
+        var descriptor = new Zip64DataDescriptor { };
         Assert.Throws<ArgumentException>(() => descriptor.WriteTo(null!));
     }
 
     [Fact]
     public void WriteTo_ThrowsIfStreamNotWritable()
     {
-        var descriptor = CreateDescriptor();
+        var descriptor = new Zip64DataDescriptor { };
         var readOnlyStream = new MemoryStream(new byte[32], writable: false);
         Assert.Throws<ArgumentException>(() => descriptor.WriteTo(readOnlyStream));
     }
 
-    private static byte[] CreateDescriptorBytes(
-        uint crc = 123,
-        ulong compressedSize = 456,
-        ulong uncompressedSize = 789)
-    {
-        var entry = CreateDescriptor(crc, compressedSize, uncompressedSize);
-        using var ms = new MemoryStream();
-        entry.WriteTo(ms);
-        return ms.ToArray();
-    }
+    // --- Helpers ---
 
-    private static Zip64DataDescriptor CreateDescriptor(
-        uint crc = 123,
-        ulong compressedSize = 456,
-        ulong uncompressedSize = 789)
-        => Zip64DataDescriptor.CreateDefault(crc, compressedSize, uncompressedSize);
-
-    private static Zip64DataDescriptor ParseZip64DataDescriptor(byte[] bytes)
-        => Zip64DataDescriptor.Parse(bytes);
+    private static bool TryParse(byte[] bytes, out Zip64DataDescriptor result)
+        => Zip64DataDescriptor.TryParse(bytes, out result);
 }

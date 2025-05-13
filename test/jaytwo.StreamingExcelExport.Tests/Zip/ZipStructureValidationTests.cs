@@ -169,13 +169,15 @@ public class ZipStructureValidationTests
         Assert.Equal(filename, actualName);
     }
 
+    // --- Helpers ---
+
     private static async Task<byte[]> CreateZipPackageBytes(byte[] content, string filename = "zipped.txt", string? comment = null, bool useZip64 = false)
     {
         using var ms = new MemoryStream();
 
         await using (var zipWriter = ZipWriter.Create(ms, leaveOpen: true, useZip64: useZip64))
         {
-            await zipWriter.WriteFileAsync(filename, comment, async stream =>
+            await zipWriter.WriteZipEntryAsync(filename, comment, async stream =>
             {
                 await stream.WriteAsync(content);
             });

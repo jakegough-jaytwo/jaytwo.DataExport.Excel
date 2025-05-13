@@ -5,5 +5,5 @@ namespace jaytwo.StreamingExcelExport.Zip;
 
 internal interface IZipPart
 {
-    void WriteTo(Stream stream);
+    void WriteTo(Stream stream, bool validate = true);
 }

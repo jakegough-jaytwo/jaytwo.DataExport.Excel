@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using jaytwo.StreamingExcelExport.Zip.Zip64;
 using Xunit;
 
@@ -7,50 +6,63 @@ namespace jaytwo.StreamingExcelExport.Tests.Zip;
 
 public class Zip64EndOfCentralDirectoryLocatorTests
 {
-    [Fact]
-    public void WriteTo_WritesCorrectSignature()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectSignature(uint value)
     {
-        var bytes = CreateLocatorBytes();
-        var parsed = ParseZip64EocdLocator(bytes);
-        Assert.Equal(Zip64EndOfCentralDirectoryLocator.KnownSignature, parsed.Signature);
+        var bytes = new Zip64EndOfCentralDirectoryLocator() { Signature = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Signature);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectOffset()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    [InlineData(0x0123456789ABCDEF)]
+    [InlineData(0xFFFFFFFFFFFFFFFF)]
+    public void WriteTo_WritesCorrectOffset(ulong value)
     {
-        ulong expectedOffset = 1234567890;
-        var bytes = CreateLocatorBytes(expectedOffset);
-        var parsed = ParseZip64EocdLocator(bytes);
-        Assert.Equal(expectedOffset, parsed.Zip64EndOfCentralDirectoryOffset);
+        var bytes = new Zip64EndOfCentralDirectoryLocator() { Zip64EndOfCentralDirectoryOffset = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Zip64EndOfCentralDirectoryOffset);
     }
 
-    [Fact]
-    public void WriteTo_WritesStartDiskAsZero()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectCentralDirectoryStartDisk(uint value)
     {
-        var bytes = CreateLocatorBytes();
-        var parsed = ParseZip64EocdLocator(bytes);
-        Assert.Equal(0u, parsed.CentralDirectoryStartDisk);
+        var bytes = new Zip64EndOfCentralDirectoryLocator() { CentralDirectoryStartDisk = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.CentralDirectoryStartDisk);
     }
 
-    [Fact]
-    public void WriteTo_WritesTotalDisksAsOne()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectCentralTotalDisks(uint value)
     {
-        var bytes = CreateLocatorBytes();
-        var parsed = ParseZip64EocdLocator(bytes);
-        Assert.Equal(1u, parsed.TotalDisks);
+        var bytes = new Zip64EndOfCentralDirectoryLocator() { TotalDisks = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.TotalDisks);
     }
 
     [Fact]
     public void WriteTo_ThrowsIfStreamIsNull()
     {
-        var locator = Zip64EndOfCentralDirectoryLocator.CreateDefault(0);
+        var locator = Zip64EndOfCentralDirectoryLocatorFactory.CreateLocator(0);
         Assert.Throws<ArgumentNullException>(() => locator.WriteTo(null!));
     }
 
     [Fact]
     public void WriteTo_WritesExactly20Bytes()
     {
-        var bytes = CreateLocatorBytes();
+        var bytes = new Zip64EndOfCentralDirectoryLocator() { }.GetBytes(validate: false);
         Assert.Equal(20, bytes.Length); // 4 + 4 + 8 + 4
     }
 
@@ -58,7 +70,7 @@ public class Zip64EndOfCentralDirectoryLocatorTests
     public void ToString_IncludesOffsetValue()
     {
         ulong offset = 0xDEADBEEFCAFEBABE;
-        var locator = Zip64EndOfCentralDirectoryLocator.CreateDefault(offset);
+        var locator = Zip64EndOfCentralDirectoryLocatorFactory.CreateLocator(offset);
         var result = locator.ToString();
         Assert.Contains(offset.ToString(), result);
     }
@@ -78,21 +90,12 @@ public class Zip64EndOfCentralDirectoryLocatorTests
             TotalDisks = hasTotalDisks ? 1u : null,
         };
 
-        using var ms = new MemoryStream();
-        var ex = Assert.Throws<InvalidOperationException>(() => locator.WriteTo(ms));
+        var ex = Assert.Throws<InvalidOperationException>(() => locator.GetBytes(validate: true));
         Assert.Contains(expectedParam, ex.Message);
     }
 
     // --- Helpers ---
 
-    private static byte[] CreateLocatorBytes(ulong offset = 987654321)
-    {
-        var locator = Zip64EndOfCentralDirectoryLocator.CreateDefault(offset);
-        using var ms = new MemoryStream();
-        locator.WriteTo(ms);
-        return ms.ToArray();
-    }
-
-    private static Zip64EndOfCentralDirectoryLocator ParseZip64EocdLocator(byte[] bytes)
-        => Zip64EndOfCentralDirectoryLocator.Parse(bytes);
+    private static bool TryParse(byte[] bytes, out Zip64EndOfCentralDirectoryLocator result)
+        => Zip64EndOfCentralDirectoryLocator.TryParse(bytes, out result);
 }

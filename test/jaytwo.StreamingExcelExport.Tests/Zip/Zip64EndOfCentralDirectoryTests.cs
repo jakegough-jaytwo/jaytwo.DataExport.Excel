@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using jaytwo.StreamingExcelExport.Zip;
 using jaytwo.StreamingExcelExport.Zip.Zip64;
 using Xunit;
 
@@ -8,45 +7,59 @@ namespace jaytwo.StreamingExcelExport.Tests.Zip;
 
 public class Zip64EndOfCentralDirectoryTests
 {
-    [Fact]
-    public void WriteTo_WritesCorrectSignature()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectSignature(uint value)
     {
-        var bytes = CreateEocd64Bytes();
-        var parsed = ParseZip64EndOfCentralDirectory(bytes);
-        Assert.Equal(Zip64EndOfCentralDirectory.KnownSignature, parsed.Signature);
+        var bytes = new Zip64EndOfCentralDirectory() { Signature = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Signature);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectVersion()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x0123456789ABCDEF)]
+    [InlineData(0xFFFFFFFFFFFFFFFF)]
+    public void WriteTo_WritesCorrectTotalEntries(ulong value)
     {
-        var bytes = CreateEocd64Bytes();
-        var parsed = ParseZip64EndOfCentralDirectory(bytes);
-
-        Assert.Equal(ZipConstants.Versions.Version45, parsed.VersionMadeBy!.Value);
-        Assert.Equal(ZipConstants.Versions.Version45, parsed.VersionNeededToExtract!.Value);
+        var bytes = new Zip64EndOfCentralDirectory() { TotalEntries = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.TotalEntries);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectEntryCounts()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x0123456789ABCDEF)]
+    [InlineData(0xFFFFFFFFFFFFFFFF)]
+    public void WriteTo_WritesCorrectTotalEntriesOnThisDisk(ulong value)
     {
-        ulong total = 12345;
-        var bytes = CreateEocd64Bytes(totalEntries: total);
-        var parsed = ParseZip64EndOfCentralDirectory(bytes);
-
-        Assert.Equal(total, parsed.TotalEntriesOnThisDisk);
-        Assert.Equal(total, parsed.TotalEntries);
+        var bytes = new Zip64EndOfCentralDirectory() { TotalEntriesOnThisDisk = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.TotalEntriesOnThisDisk);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectSizeAndOffset()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x0123456789ABCDEF)]
+    [InlineData(0xFFFFFFFFFFFFFFFF)]
+    public void WriteTo_WritesCorrectCentralDirectorySize(ulong value)
     {
-        ulong size = 65536;
-        ulong offset = 999999;
-        var bytes = CreateEocd64Bytes(size: size, offset: offset);
-        var parsed = ParseZip64EndOfCentralDirectory(bytes);
+        var bytes = new Zip64EndOfCentralDirectory() { CentralDirectorySize = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.CentralDirectorySize);
+    }
 
-        Assert.Equal(size, parsed.CentralDirectorySize);
-        Assert.Equal(offset, parsed.CentralDirectoryOffset);
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x0123456789ABCDEF)]
+    [InlineData(0xFFFFFFFFFFFFFFFF)]
+    public void WriteTo_WritesCorrectCentralDirectoryOffset(ulong value)
+    {
+        var bytes = new Zip64EndOfCentralDirectory() { CentralDirectoryOffset = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.CentralDirectoryOffset);
     }
 
     [Fact]
@@ -60,24 +73,12 @@ public class Zip64EndOfCentralDirectoryTests
     public void WriteTo_ThrowsIfStreamNotWritable()
     {
         var eocd = new Zip64EndOfCentralDirectory();
-        var readOnly = new MemoryStream(new byte[128], writable: false);
+        var readOnly = new MemoryStream(new byte[64], writable: false);
         Assert.Throws<ArgumentException>(() => eocd.WriteTo(readOnly));
     }
 
     // --- Helpers ---
 
-    private static byte[] CreateEocd64Bytes(ulong totalEntries = 1, ulong size = 100, ulong offset = 200)
-    {
-        var eocd = Zip64EndOfCentralDirectory.CreateDefault(
-            totalEntries: totalEntries,
-            centralDirectorySize: size,
-            centralDirectoryOffset: offset);
-
-        using var ms = new MemoryStream();
-        eocd.WriteTo(ms);
-        return ms.ToArray();
-    }
-
-    private static Zip64EndOfCentralDirectory ParseZip64EndOfCentralDirectory(byte[] bytes)
-        => Zip64EndOfCentralDirectory.Parse(bytes);
+    private static bool TryParse(byte[] bytes, out Zip64EndOfCentralDirectory result)
+        => Zip64EndOfCentralDirectory.TryParse(bytes, out result);
 }

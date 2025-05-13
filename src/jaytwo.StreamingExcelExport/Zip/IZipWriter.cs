@@ -7,5 +7,5 @@ namespace jaytwo.StreamingExcelExport.Zip;
 internal interface IZipWriter
     : IDisposable, IAsyncDisposable
 {
-    Task WriteFileAsync(string fileName, string comment, Func<Stream, Task> writeFileCallback);
+    Task WriteZipEntryAsync(string fileName, string comment, Func<Stream, Task> writeFileCallback);
 }

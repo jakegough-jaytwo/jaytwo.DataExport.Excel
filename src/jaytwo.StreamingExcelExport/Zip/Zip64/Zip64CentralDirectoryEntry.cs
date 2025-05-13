@@ -9,7 +9,6 @@ namespace jaytwo.StreamingExcelExport.Zip.Zip64;
 internal class Zip64CentralDirectoryEntry : Zip32CentralDirectoryEntry, IZipPart
 {
     public const ushort Zip64ExtraFieldHeaderId = 0x0001;
-    public const uint SeeZip64ExtraFields = 0xFFFFFFFF;
 
     private const int Zip64ExtraFieldTotalLength = 28; // 2 + 2 + 8 + 8 + 8
 
@@ -37,55 +36,21 @@ internal class Zip64CentralDirectoryEntry : Zip32CentralDirectoryEntry, IZipPart
         set => UpdateZip64ExtraField(localHeaderOffset: value);
     }
 
-    public static Zip64CentralDirectoryEntry CreateDefault(
-        ushort compressionMethod,
-        uint? crc32 = default,
-        ulong? compressedSize = default,
-        ulong? uncompressedSize = default,
-        string? fileName = default,
-        string? fileComment = default,
-        ulong? localHeaderOffset = default)
+    public override string ToString() =>
+        $"CDE64[\"{FileName}\", CRC={Crc32}, Size={Zip64CompressedSize}, Offset={Zip64LocalHeaderOffset}]";
+
+    internal static bool TryParse(byte[] bytes, out Zip64CentralDirectoryEntry result, int offset = 0)
     {
-        var result = new Zip64CentralDirectoryEntry()
-        {
-            Signature = KnownSignature,
-            VersionMadeBy = ZipConstants.Versions.Version20,
-            VersionNeededToExtract = ZipConstants.Versions.Version20,
-            GeneralPurposeBitFlag = ZipConstants.GeneralPurposeBitFlags.DataDescriptorFollows,
-            CompressionMethod = compressionMethod,
-            LastModTime = 0,
-            LastModDate = 0,
-            DiskNumberStart = 0,
-            InternalFileAttributes = 0,
-            ExternalFileAttributes = 0,
-            Crc32 = crc32,
-            CompressedSize = SeeZip64ExtraFields,
-            UncompressedSize = SeeZip64ExtraFields,
-            LocalHeaderOffset = SeeZip64ExtraFields,
-            Zip64CompressedSize = compressedSize ?? 0,
-            Zip64UncompressedSize = uncompressedSize ?? 0,
-            Zip64LocalHeaderOffset = localHeaderOffset ?? 0,
-        };
-
-        result.FileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
-        result.FileNameLength = (ushort)Encoding.UTF8.GetByteCount(fileName);
-
-        fileComment ??= string.Empty;
-        result.FileComment = fileComment;
-        result.FileCommentLength = (ushort)Encoding.UTF8.GetByteCount(fileComment);
-
-        return result;
+        result = new Zip64CentralDirectoryEntry();
+        return TryLoad(result, bytes, offset);
     }
 
-    public static new Zip64CentralDirectoryEntry Parse(byte[] bytes, int offset = 0)
+    internal static new Zip64CentralDirectoryEntry Parse(byte[] bytes, int offset = 0)
     {
         var result = new Zip64CentralDirectoryEntry();
         Load(result, bytes, offset);
         return result;
     }
-
-    public override string ToString() =>
-        $"CDE64[\"{FileName}\", CRC={Crc32}, Size={Zip64CompressedSize}, Offset={Zip64LocalHeaderOffset}]";
 
     private void UpdateZip64ExtraField(ulong? uncompressedSize = default, ulong? compressedSize = default, ulong? localHeaderOffset = default)
     {

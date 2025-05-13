@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace jaytwo.StreamingExcelExport.Zip.Zip32;
@@ -48,105 +49,84 @@ internal class Zip32CentralDirectoryEntry : IZipPart
 
     public string? FileComment { get; set; }
 
-    public static Zip32CentralDirectoryEntry CreateDefault(
-        ushort compressionMethod,
-        uint? crc32 = default,
-        uint? compressedSize = default,
-        uint? uncompressedSize = default,
-        string? fileName = default,
-        string? fileComment = default,
-        uint? localHeaderOffset = default)
-    {
-        var result = new Zip32CentralDirectoryEntry()
-        {
-            Signature = KnownSignature,
-            VersionMadeBy = ZipConstants.Versions.Version20,
-            VersionNeededToExtract = ZipConstants.Versions.Version20,
-            GeneralPurposeBitFlag = ZipConstants.GeneralPurposeBitFlags.DataDescriptorFollows,
-            CompressionMethod = compressionMethod,
-            LastModTime = 0,
-            LastModDate = 0,
-            DiskNumberStart = 0,
-            InternalFileAttributes = 0,
-            ExternalFileAttributes = 0,
-            Crc32 = crc32,
-            CompressedSize = compressedSize,
-            UncompressedSize = uncompressedSize,
-            ExtraFieldLength = 0,
-            ExtraField = Array.Empty<byte>(),
-        };
-
-        if (!string.IsNullOrEmpty(fileName))
-        {
-            result.FileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
-            result.FileNameLength = (ushort)Encoding.UTF8.GetByteCount(fileName);
-        }
-
-        fileComment ??= string.Empty;
-        result.FileComment = fileComment;
-        result.FileCommentLength = (ushort)Encoding.UTF8.GetByteCount(fileComment);
-
-        result.LocalHeaderOffset = localHeaderOffset;
-
-        return result;
-    }
-
-    public void WriteTo(Stream stream)
+    public void WriteTo(Stream stream, bool validate = true)
     {
         if (stream == null || !stream.CanWrite)
         {
             throw new ArgumentException("Stream must be writable.", nameof(stream));
         }
 
-        var fileNameBytes = Encoding.UTF8.GetBytes(FileName ?? throw new ArgumentNullException(nameof(FileName)));
-        if (FileNameLength != fileNameBytes.Length)
+        var fileNameBytes = Encoding.UTF8.GetBytes(ThrowIfNull(x => FileName) ?? string.Empty);
+        if (validate && FileNameLength != fileNameBytes.Length)
         {
-            throw new ArgumentException("FileNameLength must be equal to length of file name", nameof(FileNameLength));
+            throw new InvalidOperationException($"{nameof(FileNameLength)} must be equal to length of {nameof(FileName)}");
         }
 
         var commentBytes = Encoding.UTF8.GetBytes(FileComment ?? string.Empty);
-        if (FileCommentLength != commentBytes.Length)
+        if (validate && FileCommentLength != commentBytes.Length)
         {
-            throw new ArgumentException("FileCommentLength must be equal to length of file comment", nameof(FileCommentLength));
+            throw new InvalidOperationException($"{nameof(FileCommentLength)} must be equal to length of {nameof(FileComment)}");
         }
 
         var extraFieldBytes = ExtraField ?? Array.Empty<byte>();
-        if (ExtraFieldLength != extraFieldBytes.Length)
+        if (validate && ExtraFieldLength != extraFieldBytes.Length)
         {
-            throw new ArgumentException("FileCommentLength must be equal to length of file comment", nameof(FileCommentLength));
+            throw new InvalidOperationException($"{nameof(ExtraFieldLength)} must be equal to length of {nameof(ExtraField)}");
         }
 
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write(Signature ?? throw new InvalidOperationException($"{nameof(Signature)} is required."));
-        writer.Write(VersionMadeBy ?? throw new InvalidOperationException($"{nameof(VersionMadeBy)} is required."));
-        writer.Write(VersionNeededToExtract ?? throw new InvalidOperationException($"{nameof(VersionNeededToExtract)} is required."));
-        writer.Write(GeneralPurposeBitFlag ?? throw new InvalidOperationException($"{nameof(GeneralPurposeBitFlag)} is required."));
-        writer.Write(CompressionMethod ?? throw new InvalidOperationException($"{nameof(CompressionMethod)} is required."));
-        writer.Write(LastModTime ?? throw new InvalidOperationException($"{nameof(LastModTime)} is required."));
-        writer.Write(LastModDate ?? throw new InvalidOperationException($"{nameof(LastModDate)} is required."));
-        writer.Write(Crc32 ?? throw new InvalidOperationException($"{nameof(Crc32)} is required."));
-        writer.Write(CompressedSize ?? throw new InvalidOperationException($"{nameof(CompressedSize)} is required."));
-        writer.Write(UncompressedSize ?? throw new InvalidOperationException($"{nameof(UncompressedSize)} is required."));
-        writer.Write(FileNameLength ?? throw new InvalidOperationException($"{nameof(FileNameLength)} is required."));
-        writer.Write(ExtraFieldLength ?? throw new InvalidOperationException($"{nameof(ExtraFieldLength)} is required."));
-        writer.Write(FileCommentLength ?? throw new InvalidOperationException($"{nameof(FileCommentLength)} is required."));
-        writer.Write(DiskNumberStart ?? throw new InvalidOperationException($"{nameof(DiskNumberStart)} is required."));
-        writer.Write(InternalFileAttributes ?? throw new InvalidOperationException($"{nameof(InternalFileAttributes)} is required."));
-        writer.Write(ExternalFileAttributes ?? throw new InvalidOperationException($"{nameof(ExternalFileAttributes)} is required."));
-        writer.Write(LocalHeaderOffset ?? throw new InvalidOperationException($"{nameof(LocalHeaderOffset)} is required."));
+        writer.Write(ThrowIfNull(x => x.Signature) ?? default);
+        writer.Write(ThrowIfNull(x => x.VersionMadeBy) ?? default);
+        writer.Write(ThrowIfNull(x => x.VersionNeededToExtract) ?? default);
+        writer.Write(ThrowIfNull(x => x.GeneralPurposeBitFlag) ?? default);
+        writer.Write(ThrowIfNull(x => x.CompressionMethod) ?? default);
+        writer.Write(ThrowIfNull(x => x.LastModTime) ?? default);
+        writer.Write(ThrowIfNull(x => x.LastModDate) ?? default);
+        writer.Write(ThrowIfNull(x => x.Crc32) ?? default);
+        writer.Write(ThrowIfNull(x => x.CompressedSize) ?? default);
+        writer.Write(ThrowIfNull(x => x.UncompressedSize) ?? default);
+        writer.Write(ThrowIfNull(x => x.FileNameLength) ?? default);
+        writer.Write(ThrowIfNull(x => x.ExtraFieldLength) ?? default);
+        writer.Write(ThrowIfNull(x => x.FileCommentLength) ?? default);
+        writer.Write(ThrowIfNull(x => x.DiskNumberStart) ?? default);
+        writer.Write(ThrowIfNull(x => x.InternalFileAttributes) ?? default);
+        writer.Write(ThrowIfNull(x => x.ExternalFileAttributes) ?? default);
+        writer.Write(ThrowIfNull(x => x.LocalHeaderOffset) ?? default);
         writer.Write(fileNameBytes);
         writer.Write(extraFieldBytes);
         writer.Write(commentBytes);
+
+        TValue ThrowIfNull<TValue>(Expression<Func<Zip32CentralDirectoryEntry, TValue>> propertyExpression)
+            => ValidationHelper.EnsureNotNull(this, propertyExpression, validate);
     }
 
     public override string ToString() =>
         $"CDE32[\"{FileName}\", CRC={Crc32}, Size={CompressedSize}, Offset={LocalHeaderOffset}]";
+
+    internal static bool TryParse(byte[] bytes, out Zip32CentralDirectoryEntry result, int offset = 0)
+    {
+        result = new Zip32CentralDirectoryEntry();
+        return TryLoad(result, bytes, offset);
+    }
 
     internal static Zip32CentralDirectoryEntry Parse(byte[] bytes, int offset = 0)
     {
         var result = new Zip32CentralDirectoryEntry();
         Load(result, bytes, offset);
         return result;
+    }
+
+    protected static bool TryLoad(Zip32CentralDirectoryEntry result, byte[] bytes, int offset = 0)
+    {
+        try
+        {
+            Load(result, bytes, offset);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     protected static void Load(Zip32CentralDirectoryEntry result, byte[] bytes, int offset = 0)

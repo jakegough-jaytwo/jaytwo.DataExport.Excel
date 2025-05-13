@@ -20,7 +20,7 @@ public class ZipWriterTests
         using var ms = new MemoryStream();
         var zipWriter = ZipWriter.Create(ms, leaveOpen: true, useZip64: useZip64);
 
-        await zipWriter.WriteFileAsync("hello.txt", "optional comment", async stream =>
+        await zipWriter.WriteZipEntryAsync("hello.txt", "optional comment", async stream =>
         {
             var content = Encoding.UTF8.GetBytes("Hello, ZIP!");
             await stream.WriteAsync(content);
@@ -62,7 +62,7 @@ public class ZipWriterTests
         var expectedCrc = Crc32Helper.ComputeCrc(bytes);
         using (var zipWriter = ZipWriter.Create(ms, leaveOpen: true, useZip64: useZip64))
         {
-            await zipWriter.WriteFileAsync("data.bin", string.Empty, async stream =>
+            await zipWriter.WriteZipEntryAsync("data.bin", string.Empty, async stream =>
             {
                 await stream.WriteAsync(bytes);
             });
@@ -79,13 +79,14 @@ public class ZipWriterTests
     }
 
     [Theory]
-    [InlineData(1024 * 1024 * 70)]
-    public async Task ZipWriter_WritesLargeFileCorrectly(int fileSize)
+    [InlineData(true, 1024 * 1024 * 70)]
+    [InlineData(false, 1024 * 1024 * 70)]
+    public async Task ZipWriter_WritesLargeFileCorrectly(bool useZip64, int fileSize)
     {
         using var ms = new MemoryStream();
-        var zipWriter = ZipWriter.CreateZip64(ms, leaveOpen: true);
+        var zipWriter = ZipWriter.Create(ms, leaveOpen: true, useZip64: useZip64);
 
-        await zipWriter.WriteFileAsync("large.dat", string.Empty, async stream =>
+        await zipWriter.WriteZipEntryAsync("large.dat", string.Empty, async stream =>
         {
             var buffer = new byte[8192];
             var total = 0;
@@ -105,13 +106,16 @@ public class ZipWriterTests
     }
 
     [Theory]
-    [InlineData(1)]
-    [InlineData(5)]
-    [InlineData(25)]
-    public async Task ZipWriter_WritesMultipleFilesCorrectly(int fileCount)
+    [InlineData(true, 1)]
+    [InlineData(true, 5)]
+    [InlineData(true, 25)]
+    [InlineData(false, 1)]
+    [InlineData(false, 5)]
+    [InlineData(false, 25)]
+    public async Task ZipWriter_WritesMultipleFilesCorrectly(bool useZip64, int fileCount)
     {
         using var ms = new MemoryStream();
-        var zipWriter = ZipWriter.CreateZip32(ms, leaveOpen: true);
+        var zipWriter = ZipWriter.Create(ms, leaveOpen: true, useZip64: useZip64);
 
         var expectedFiles = new (string Name, string Content)[fileCount];
         for (int i = 0; i < fileCount; i++)
@@ -120,7 +124,7 @@ public class ZipWriterTests
             var content = $"This is the content of file {i + 1}";
             expectedFiles[i] = (name, content);
 
-            await zipWriter.WriteFileAsync(name, string.Empty, async stream =>
+            await zipWriter.WriteZipEntryAsync(name, string.Empty, async stream =>
             {
                 var bytes = Encoding.UTF8.GetBytes(content);
                 await stream.WriteAsync(bytes);

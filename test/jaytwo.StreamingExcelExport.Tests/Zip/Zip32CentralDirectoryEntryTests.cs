@@ -1,7 +1,5 @@
 using System;
-using System.IO;
 using System.Text;
-using jaytwo.StreamingExcelExport.Zip;
 using jaytwo.StreamingExcelExport.Zip.Zip32;
 using Xunit;
 
@@ -9,120 +7,140 @@ namespace jaytwo.StreamingExcelExport.Tests.Zip;
 
 public class Zip32CentralDirectoryEntryTests
 {
-    [Fact]
-    public void WriteTo_WritesCorrectSignature()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectSignature(uint value)
     {
-        var bytes = CreateEntryBytes();
-        var parsed = ParseEntry(bytes);
-        Assert.Equal(Zip32CentralDirectoryEntry.KnownSignature, parsed.Signature);
+        var bytes = new Zip32CentralDirectoryEntry() { Signature = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Signature);
     }
 
-    [Fact]
-    public void WriteTo_WritesCorrectCrc32()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCorrectCrc32(uint value)
     {
-        uint crc = 0x12345678;
-        var bytes = CreateEntryBytes(crc: crc);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal(crc, parsed.Crc32);
+        var bytes = new Zip32CentralDirectoryEntry() { Crc32 = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.Crc32);
     }
 
     [Fact]
     public void WriteTo_WritesFileNameCorrectly()
     {
-        var fileName = "hello.txt";
-        var bytes = CreateEntryBytes(fileName: fileName);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal(fileName, parsed.FileName);
+        var value = "file name";
+        var bytes = new Zip32CentralDirectoryEntry() { FileName = value, FileNameLength = (ushort)value.Length }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.FileName);
     }
 
     [Fact]
     public void WriteTo_WritesFileCommentCorrectly()
     {
-        var comment = "zip comment";
-        var bytes = CreateEntryBytes(comment: comment);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal(comment, parsed.FileComment);
+        var value = "zip comment";
+        var bytes = new Zip32CentralDirectoryEntry() { FileComment = value, FileCommentLength = (ushort)value.Length }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.FileComment);
     }
 
     [Fact]
     public void WriteTo_WritesExtraFieldCorrectly()
     {
-        var extraField = Encoding.UTF8.GetBytes("extra!extra!");
-        var bytes = CreateEntryBytes(extraField: extraField);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal(extraField, parsed.ExtraField);
+        var value = Encoding.UTF8.GetBytes("extra");
+        var bytes = new Zip32CentralDirectoryEntry() { ExtraField = value, ExtraFieldLength = (ushort)value.Length }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.ExtraField);
     }
 
-    [Fact]
-    public void WriteTo_WritesFileNameLengthCorrectly()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x1234)]
+    [InlineData(0xFFFF)]
+    public void WriteTo_WritesFileNameLengthCorrectly(ushort value)
     {
-        var fileName = "test.txt";
-        var bytes = CreateEntryBytes(fileName: fileName);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal((ushort)Encoding.UTF8.GetByteCount(fileName), parsed.FileNameLength);
+        var bytes = new Zip32CentralDirectoryEntry() { FileNameLength = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.FileNameLength);
     }
 
-    [Fact]
-    public void WriteTo_WritesFileCommentLengthCorrectly()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x1234)]
+    [InlineData(0xFFFF)]
+    public void WriteTo_WritesFileCommentLengthCorrectly(ushort value)
     {
-        var comment = "comment!";
-        var bytes = CreateEntryBytes(comment: comment);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal((ushort)Encoding.UTF8.GetByteCount(comment), parsed.FileCommentLength);
+        var bytes = new Zip32CentralDirectoryEntry() { FileCommentLength = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.FileCommentLength);
     }
 
-    [Fact]
-    public void WriteTo_WritesExtraFieldLengthCorrectly()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x1234)]
+    [InlineData(0xFFFF)]
+    public void WriteTo_WritesExtraFieldLengthCorrectly(ushort value)
     {
-        var extraField = Encoding.UTF8.GetBytes("extra!extra!");
-        var bytes = CreateEntryBytes(extraField: extraField);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal((ushort)extraField.Length, parsed.ExtraFieldLength);
+        var bytes = new Zip32CentralDirectoryEntry() { ExtraFieldLength = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.ExtraFieldLength);
     }
 
-    [Fact]
-    public void WriteTo_WritesCompressedSizeCorrectly()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesCompressedSizeCorrectly(uint value)
     {
-        uint size = 1024;
-        var bytes = CreateEntryBytes(compressedSize: size);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal(size, parsed.CompressedSize);
+        var bytes = new Zip32CentralDirectoryEntry() { CompressedSize = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.CompressedSize);
     }
 
-    [Fact]
-    public void WriteTo_WritesUncompressedSizeCorrectly()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesUncompressedSizeCorrectly(uint value)
     {
-        uint size = 1024;
-        var bytes = CreateEntryBytes(uncompressedSize: size);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal(size, parsed.UncompressedSize);
+        var bytes = new Zip32CentralDirectoryEntry() { UncompressedSize = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.UncompressedSize);
     }
 
-    [Fact]
-    public void WriteTo_WritesLocalHeaderOffsetCorrectly()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0x12345678)]
+    [InlineData(0xFFFFFFFF)]
+    public void WriteTo_WritesLocalHeaderOffsetCorrectly(uint value)
     {
-        uint offset = 987654321;
-        var bytes = CreateEntryBytes(localHeaderOffset: offset);
-        var parsed = ParseEntry(bytes);
-        Assert.Equal(offset, parsed.LocalHeaderOffset);
+        var bytes = new Zip32CentralDirectoryEntry() { LocalHeaderOffset = value }.GetBytes(validate: false);
+        TryParse(bytes, out var parsed);
+        Assert.Equal(value, parsed.LocalHeaderOffset);
     }
 
     [Fact]
     public void WriteTo_ThrowsIfFileNameLengthDoesNotMatchBytes()
     {
-        var entry = CreateEntry();
-        entry.FileNameLength = 999; // intentionally wrong
-        using var ms = new MemoryStream();
-        Assert.Throws<ArgumentException>(() => entry.WriteTo(ms));
+        var entry = new Zip32CentralDirectoryEntry() { FileName = "hello", FileNameLength = 999 };
+        Assert.Throws<InvalidOperationException>(() => entry.GetBytes(validate: true));
     }
 
     [Fact]
     public void WriteTo_ThrowsIfFileCommentLengthDoesNotMatchBytes()
     {
-        var entry = CreateEntry(fileComment: "xyz");
-        entry.FileCommentLength = 1; // intentionally wrong
-        using var ms = new MemoryStream();
-        Assert.Throws<ArgumentException>(() => entry.WriteTo(ms));
+        var entry = new Zip32CentralDirectoryEntry() { FileComment = "hello", FileCommentLength = 999 };
+        Assert.Throws<InvalidOperationException>(() => entry.GetBytes(validate: true));
+    }
+
+    [Fact]
+    public void WriteTo_ThrowsIfExtraFieldLengthDoesNotMatchBytes()
+    {
+        var entry = new Zip32CentralDirectoryEntry() { ExtraField = new byte[] { 1, 2, 3, 4 }, ExtraFieldLength = 999 };
+        Assert.Throws<InvalidOperationException>(() => entry.GetBytes(validate: true));
     }
 
     [Fact]
@@ -132,8 +150,14 @@ public class Zip32CentralDirectoryEntryTests
         uint crc32 = 3405691582;
         uint compressedSize = 1234;
         uint localHeaderOffset = 5678;
-        var entry = CreateEntry(
-            fileName: fileName, crc32: crc32, compressedSize: compressedSize, localHeaderOffset: localHeaderOffset);
+
+        var entry = new Zip32CentralDirectoryEntry()
+        {
+            FileName = fileName,
+            Crc32 = crc32,
+            CompressedSize = compressedSize,
+            LocalHeaderOffset = localHeaderOffset,
+        };
 
         var text = entry.ToString();
 
@@ -145,54 +169,6 @@ public class Zip32CentralDirectoryEntryTests
 
     // --- Helpers ---
 
-    private static Zip32CentralDirectoryEntry CreateEntry(
-        ushort compressionMethod = ZipConstants.CompressionMethods.NoCompression,
-        uint crc32 = 0,
-        string fileName = "file.txt",
-        string? fileComment = "comment",
-        uint? compressedSize = 123,
-        uint? uncompressedSize = 456,
-        uint? localHeaderOffset = 789,
-        byte[]? extraField = null)
-    {
-        var result = Zip32CentralDirectoryEntry.CreateDefault(
-            compressionMethod: compressionMethod,
-            crc32: crc32,
-            fileName: fileName,
-            fileComment: fileComment,
-            compressedSize: compressedSize,
-            uncompressedSize: uncompressedSize,
-            localHeaderOffset: localHeaderOffset);
-
-        result.ExtraField = extraField;
-        result.ExtraFieldLength = (ushort)(extraField?.Length ?? 0);
-
-        return result;
-    }
-
-    private static byte[] CreateEntryBytes(
-        uint crc = 0,
-        string fileName = "file.txt",
-        string? comment = "comment",
-        uint? compressedSize = 123,
-        uint? uncompressedSize = 456,
-        uint? localHeaderOffset = 789,
-        byte[]? extraField = null)
-    {
-        var entry = CreateEntry(
-            crc32: crc,
-            fileName: fileName,
-            fileComment: comment,
-            compressedSize: compressedSize,
-            uncompressedSize: uncompressedSize,
-            localHeaderOffset: localHeaderOffset,
-            extraField: extraField);
-
-        using var ms = new MemoryStream();
-        entry.WriteTo(ms);
-        return ms.ToArray();
-    }
-
-    private static Zip32CentralDirectoryEntry ParseEntry(byte[] bytes)
-        => Zip32CentralDirectoryEntry.Parse(bytes);
+    private static bool TryParse(byte[] bytes, out Zip32CentralDirectoryEntry result)
+        => Zip32CentralDirectoryEntry.TryParse(bytes, out result);
 }

@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace jaytwo.StreamingExcelExport.Zip.Zip32;
@@ -27,48 +27,7 @@ internal class Zip32EndOfCentralDirectory : IZipPart
 
     public ushort? CommentLength { get; set; }
 
-    public static Zip32EndOfCentralDirectory CreateDefault(
-        ushort totalEntries = 0,
-        uint centralDirectorySize = 0,
-        uint centralDirectoryOffset = 0,
-        string? comment = null)
-    {
-        comment ??= string.Empty;
-
-        return new Zip32EndOfCentralDirectory
-        {
-            Signature = KnownSignature,
-            DiskNumber = 0,
-            CentralDirectoryStartDisk = 0,
-            TotalEntriesOnThisDisk = totalEntries,
-            TotalEntries = totalEntries,
-            CentralDirectorySize = centralDirectorySize,
-            CentralDirectoryOffset = centralDirectoryOffset,
-            Comment = comment,
-            CommentLength = (ushort)Encoding.UTF8.GetByteCount(comment),
-        };
-    }
-
-    public static Zip32EndOfCentralDirectory Parse(byte[] bytes)
-    {
-        var result = new Zip32EndOfCentralDirectory
-        {
-            Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset),
-            DiskNumber = BitConverter.ToUInt16(bytes, Offsets.DiskNumberOffset),
-            CentralDirectoryStartDisk = BitConverter.ToUInt16(bytes, Offsets.CentralDirectoryStartDiskOffset),
-            TotalEntriesOnThisDisk = BitConverter.ToUInt16(bytes, Offsets.TotalEntriesOnThisDiskOffset),
-            TotalEntries = BitConverter.ToUInt16(bytes, Offsets.TotalEntriesOffset),
-            CentralDirectorySize = BitConverter.ToUInt32(bytes, Offsets.CentralDirectorySizeOffset),
-            CentralDirectoryOffset = BitConverter.ToUInt32(bytes, Offsets.CentralDirectoryOffsetOffset),
-            CommentLength = BitConverter.ToUInt16(bytes, Offsets.CommentLengthOffset),
-        };
-
-        result.Comment = Encoding.UTF8.GetString(bytes, Offsets.CommentOffset, result.CommentLength.Value);
-
-        return result;
-    }
-
-    public void WriteTo(Stream stream)
+    public void WriteTo(Stream stream, bool validate = true)
     {
         if (stream == null || !stream.CanWrite)
         {
@@ -76,25 +35,68 @@ internal class Zip32EndOfCentralDirectory : IZipPart
         }
 
         var commentBytes = Encoding.UTF8.GetBytes(Comment ?? string.Empty);
-        if (CommentLength != commentBytes.Length)
+        if (validate && CommentLength != commentBytes.Length)
         {
-            throw new ArgumentException("CommentLength must match actual comment byte length", nameof(CommentLength));
+            throw new InvalidOperationException($"{nameof(CommentLength)} must be equal to length of {nameof(Comment)}");
         }
 
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write(Signature ?? throw new InvalidOperationException($"{nameof(Signature)} is required."));
-        writer.Write(DiskNumber ?? throw new InvalidOperationException($"{nameof(DiskNumber)} is required."));
-        writer.Write(CentralDirectoryStartDisk ?? throw new InvalidOperationException($"{nameof(CentralDirectoryStartDisk)} is required."));
-        writer.Write(TotalEntriesOnThisDisk ?? throw new InvalidOperationException($"{nameof(TotalEntriesOnThisDisk)} is required."));
-        writer.Write(TotalEntries ?? throw new InvalidOperationException($"{nameof(TotalEntries)} is required."));
-        writer.Write(CentralDirectorySize ?? throw new InvalidOperationException($"{nameof(CentralDirectorySize)} is required."));
-        writer.Write(CentralDirectoryOffset ?? throw new InvalidOperationException($"{nameof(CentralDirectoryOffset)} is required."));
-        writer.Write(CommentLength ?? throw new InvalidOperationException($"{nameof(CommentLength)} is required."));
+        writer.Write(ThrowIfNull(x => Signature) ?? default);
+        writer.Write(ThrowIfNull(x => DiskNumber) ?? default);
+        writer.Write(ThrowIfNull(x => CentralDirectoryStartDisk) ?? default);
+        writer.Write(ThrowIfNull(x => TotalEntriesOnThisDisk) ?? default);
+        writer.Write(ThrowIfNull(x => TotalEntries) ?? default);
+        writer.Write(ThrowIfNull(x => CentralDirectorySize) ?? default);
+        writer.Write(ThrowIfNull(x => CentralDirectoryOffset) ?? default);
+        writer.Write(ThrowIfNull(x => CommentLength) ?? default);
         writer.Write(commentBytes);
+
+        TValue ThrowIfNull<TValue>(Expression<Func<Zip32EndOfCentralDirectory, TValue>> propertyExpression)
+            => ValidationHelper.EnsureNotNull(this, propertyExpression, validate);
     }
 
     public override string ToString() =>
         $"EOCD32[Entries={TotalEntries}, Size={CentralDirectorySize}, Offset={CentralDirectoryOffset}]";
+
+    internal static bool TryParse(byte[] bytes, out Zip32EndOfCentralDirectory result, int offset = 0)
+    {
+        result = new Zip32EndOfCentralDirectory();
+        return TryLoad(result, bytes, offset);
+    }
+
+    internal static Zip32EndOfCentralDirectory Parse(byte[] bytes, int offset = 0)
+    {
+        var result = new Zip32EndOfCentralDirectory();
+        Load(result, bytes, offset);
+        return result;
+    }
+
+    protected static bool TryLoad(Zip32EndOfCentralDirectory result, byte[] bytes, int offset = 0)
+    {
+        try
+        {
+            Load(result, bytes, offset);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    protected static void Load(Zip32EndOfCentralDirectory result, byte[] bytes, int offset = 0)
+    {
+        result.Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset);
+        result.DiskNumber = BitConverter.ToUInt16(bytes, Offsets.DiskNumberOffset);
+        result.CentralDirectoryStartDisk = BitConverter.ToUInt16(bytes, Offsets.CentralDirectoryStartDiskOffset);
+        result.TotalEntriesOnThisDisk = BitConverter.ToUInt16(bytes, Offsets.TotalEntriesOnThisDiskOffset);
+        result.TotalEntries = BitConverter.ToUInt16(bytes, Offsets.TotalEntriesOffset);
+        result.CentralDirectorySize = BitConverter.ToUInt32(bytes, Offsets.CentralDirectorySizeOffset);
+        result.CentralDirectoryOffset = BitConverter.ToUInt32(bytes, Offsets.CentralDirectoryOffsetOffset);
+        result.CommentLength = BitConverter.ToUInt16(bytes, Offsets.CommentLengthOffset);
+
+        result.Comment = Encoding.UTF8.GetString(bytes, Offsets.CommentOffset, result.CommentLength.Value);
+    }
 
     internal static class Offsets
     {

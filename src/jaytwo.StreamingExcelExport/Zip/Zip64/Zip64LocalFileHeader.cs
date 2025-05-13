@@ -9,7 +9,6 @@ namespace jaytwo.StreamingExcelExport.Zip.Zip64;
 internal class Zip64LocalFileHeader : Zip32LocalFileHeader, IZipPart
 {
     public const ushort Zip64ExtraFieldHeaderId = 0x0001;
-    public const uint SeeZip64ExtraFields = 0xFFFFFFFF;
     private const int Zip64ExtraFieldTotalLength = 20; // 2 + 2 + 8 + 8
 
     public bool HasValidZip64ExtraField => ParseZip64ExtraField() != null;
@@ -30,40 +29,21 @@ internal class Zip64LocalFileHeader : Zip32LocalFileHeader, IZipPart
         set => UpdateZip64ExtraField(compressedSize: value);
     }
 
-    public static new Zip64LocalFileHeader CreateDefault(ushort compressionMethod, string fileName)
-    {
-        var result = new Zip64LocalFileHeader
-        {
-            Signature = KnownSignature,
-            VersionNeededToExtract = ZipConstants.Versions.Version45,
-            GeneralPurposeBitFlag = ZipConstants.GeneralPurposeBitFlags.DataDescriptorFollows,
-            CompressionMethod = compressionMethod,
-            LastModTime = 0,
-            LastModDate = 0,
-            Crc32 = 0,
-            CompressedSize = SeeZip64ExtraFields,
-            UncompressedSize = SeeZip64ExtraFields,
-            FileName = fileName,
-            FileNameLength = (ushort)Encoding.UTF8.GetByteCount(fileName ?? string.Empty),
-            Zip64CompressedSize = 0,
-            Zip64UncompressedSize = 0,
-        };
-
-        result.ExtraField = result.BuildZip64ExtraField();
-        result.ExtraFieldLength = (ushort)result.ExtraField.Length;
-
-        return result;
-    }
-
-    public static new Zip64LocalFileHeader Parse(byte[] bytes)
-    {
-        var result = new Zip64LocalFileHeader();
-        Load(result, bytes);
-        return result;
-    }
-
     public override string ToString()
         => $"LFH64[\"{FileName}\", Size={Zip64CompressedSize}, CRC={Crc32}]";
+
+    internal static bool TryParse(byte[] bytes, out Zip64LocalFileHeader result, int offset = 0)
+    {
+        result = new Zip64LocalFileHeader();
+        return TryLoad(result, bytes, offset);
+    }
+
+    internal static new Zip64LocalFileHeader Parse(byte[] bytes, int offset = 0)
+    {
+        var result = new Zip64LocalFileHeader();
+        Load(result, bytes, offset);
+        return result;
+    }
 
     private Zip64Extra? ParseZip64ExtraField()
         => Zip64Extra.TryParse(ExtraField, out var result) ? result : null;
@@ -76,19 +56,6 @@ internal class Zip64LocalFileHeader : Zip32LocalFileHeader, IZipPart
 
         ExtraField = extra.ToByteArray();
         ExtraFieldLength = (ushort)ExtraField.Length;
-    }
-
-    private byte[] BuildZip64ExtraField()
-    {
-        var extra = new Zip64Extra
-        {
-            HeaderId = Zip64ExtraFieldHeaderId,
-            DataLength = 16,
-            UncompressedSize = Zip64UncompressedSize ?? 0,
-            CompressedSize = Zip64CompressedSize ?? 0,
-        };
-
-        return extra.ToByteArray();
     }
 
     private record struct Zip64Extra

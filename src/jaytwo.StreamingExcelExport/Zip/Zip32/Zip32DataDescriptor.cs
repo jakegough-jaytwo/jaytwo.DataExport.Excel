@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace jaytwo.StreamingExcelExport.Zip.Zip32;
@@ -31,20 +31,7 @@ internal class Zip32DataDescriptor : IZipPart
         };
     }
 
-    public static Zip32DataDescriptor Parse(byte[] bytes)
-    {
-        // not validating byte length here, it's still useful to parse as much as we can for debugging
-
-        var result = new Zip32DataDescriptor();
-        result.Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset);
-        result.Crc32 = BitConverter.ToUInt32(bytes, Offsets.CrcOffset);
-        result.CompressedSize = BitConverter.ToUInt32(bytes, Offsets.CompressedSizeOffset);
-        result.UncompressedSize = BitConverter.ToUInt32(bytes, Offsets.UncompressedSizeOffset);
-
-        return result;
-    }
-
-    public void WriteTo(Stream stream)
+    public void WriteTo(Stream stream, bool validate = true)
     {
         if (stream == null || !stream.CanWrite)
         {
@@ -53,14 +40,51 @@ internal class Zip32DataDescriptor : IZipPart
 
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
 
-        writer.Write(Signature ?? throw new InvalidOperationException($"{nameof(Signature)} is required."));
-        writer.Write(Crc32 ?? throw new InvalidOperationException($"{nameof(Crc32)} is required."));
-        writer.Write(CompressedSize ?? throw new InvalidOperationException($"{nameof(CompressedSize)} is required."));
-        writer.Write(UncompressedSize ?? throw new InvalidOperationException($"{nameof(UncompressedSize)} is required."));
+        writer.Write(ThrowIfNull(x => Signature) ?? default);
+        writer.Write(ThrowIfNull(x => Crc32) ?? default);
+        writer.Write(ThrowIfNull(x => CompressedSize) ?? default);
+        writer.Write(ThrowIfNull(x => UncompressedSize) ?? default);
+
+        TValue ThrowIfNull<TValue>(Expression<Func<Zip32DataDescriptor, TValue>> propertyExpression)
+            => ValidationHelper.EnsureNotNull(this, propertyExpression, validate);
     }
 
     public override string ToString() =>
         $"DD32[CRC={Crc32}, Size={CompressedSize}]";
+
+    internal static bool TryParse(byte[] bytes, out Zip32DataDescriptor result, int offset = 0)
+    {
+        result = new Zip32DataDescriptor();
+        return TryLoad(result, bytes, offset);
+    }
+
+    internal static Zip32DataDescriptor Parse(byte[] bytes, int offset = 0)
+    {
+        var result = new Zip32DataDescriptor();
+        Load(result, bytes, offset);
+        return result;
+    }
+
+    protected static bool TryLoad(Zip32DataDescriptor result, byte[] bytes, int offset = 0)
+    {
+        try
+        {
+            Load(result, bytes, offset);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    protected static void Load(Zip32DataDescriptor result, byte[] bytes, int offset = 0)
+    {
+        result.Signature = BitConverter.ToUInt32(bytes, Offsets.SignatureOffset);
+        result.Crc32 = BitConverter.ToUInt32(bytes, Offsets.CrcOffset);
+        result.CompressedSize = BitConverter.ToUInt32(bytes, Offsets.CompressedSizeOffset);
+        result.UncompressedSize = BitConverter.ToUInt32(bytes, Offsets.UncompressedSizeOffset);
+    }
 
     public static class Offsets
     {
