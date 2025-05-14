@@ -1,29 +1,111 @@
-# jaytwo.StreamingExcelExport
+# jaytwo.DataExport.Excel
 
-[![NuGet Version](https://img.shields.io/nuget/v/jaytwo.StreamingExcelExport.svg?style=flat&logo=nuget)](https://www.nuget.org/packages/jaytwo.StreamingExcelExport)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/jaytwo.StreamingExcelExport.svg?style=flat)](https://www.nuget.org/packages/jaytwo.StreamingExcelExport)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![NuGet Version](https://img.shields.io/nuget/v/jaytwo.DataExport.Excel.svg?style=flat&logo=nuget)](https://www.nuget.org/packages/jaytwo.DataExport.Excel)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/jaytwo.DataExport.Excel.svg?style=flat)](https://www.nuget.org/packages/jaytwo.DataExport.Excel)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://mit-license.org/)
 
-Life would be easier if users were ok with a CSV export.  Somteimtes users insist on a _real_ excel export, and they can't be fooled by renaming a CSV/TSV to `.xls`.
+A streaming XLSX writer for .NET focused on low memory usage for exporting large datasets — without crashing your web server.
 
-There are already packages out there that can do that.  It's not a problem until the data gets _big_.  Since `xslx` is a zip package full of xml files, most of the time this means you have to build up that XML structure in memory before writing it to a stream/disk.  When you have a million of rows and gigabytes of raw data to export, you start crashing the webserver.
+[View source on GitHub](https://github.com/jakegough-jaytwo/jaytwo.DataExport.Excel)
 
-I wanted an efficient export that prioritizes efficient memory use.  I assume there's plenty of disk space, and I assume speed is less important.
+## Features
 
-This uses `XmlWriter` to write out the xml to disk, then you zip those files to another zip file on disk.  I've exported 900k rows with a memory footprint <20mb.
+- Stream XLSX files directly to a writable stream — no in-memory workbook buildup
+- Real `.xlsx` OpenXML format with XML parts written via `XmlWriter`
+- ZIP file packaging done with streaming ZIP implementation (no seekable streams required)
+- Async-first API: supports both `IAsyncEnumerable<T>` and `IEnumerable<T>`
+- Metadata support (creator, app name, company, version, etc.)
+- Optional `ColumnLayout` for customizing headers, widths, and alignment
+- Small memory footprint, even for large datasets (e.g. ~900k rows exported using just 12 MB of managed memory)
+- Ideal for use in ASP.NET, serverless functions, or background jobs
+
+## Background
+
+Life would be easier if users were ok with a CSV export.  Sometimes users insist on a _real_ Excel export, and they can't be fooled by renaming a CSV/TSV to `.xls`.
+
+An Excel file does come with a few noteworthy creature comforts for data exports: compressed file size, custom column widths, frozen header row, and cell formatting (including alignment, zebra striping, bold headers, etc).
+
+There were already packages out there that handle the straightforward _export to excel_.  Those packages work great — until the data gets _big_. `XLSX` is just a ZIP of XML files, and most libraries load all that XML into memory before writing the final archive. A million rows means tens of millions of DOM elements and a melted web server.
+
+I wanted an efficient export that prioritizes low memory usage and doesn't depend on seekable streams.  With this design, the full Excel file is streamed directly to the output, never buffered entirely in memory or on disk. It’s been tested with about 900k rows using about 115 MB of total memory and just 12 MB of managed memory.
+
+### The Two Hurdles
+
+1. **XML** — many libraries build full in-memory DOMs. This one uses `XmlWriter`, writing XML in a forward-only stream.
+2. **ZIP** — .NET’s `System.IO.Compression` requires seekable streams to write ZIPs. This library implements a custom ZIP32 writer to support fully streaming ZIP output.
+
+> ZIP32 format is used for compatibility — it imposes a 4GB limit per uncompressed XML document within the archive (e.g. `sheet1.xml`). ZIP64 (which removes this limit) is not reliably supported by Excel when streamed, so this library deliberately avoids ZIP64 until I find a working solution.
 
 ## Installation
 
 Add the NuGet package:
 
 ```powershell
-PM> Install-Package jaytwo.StreamingExcelExport
+PM> Install-Package jaytwo.DataExport.Excel
 ```
 
 ## Usage
 
-TODO
+The main entry point is the `ExcelWriter` class. You can write data using either an `IEnumerable<T>` or an `IAsyncEnumerable<T>`. Public properties of `T` become columns.
+
+> ⚠️ **Trap for new players:** Be careful not to confuse `IEnumerable<T>` with concrete collections like `List<T>` or arrays (`T[]`).
+>
+> While `List<T>` and arrays do implement `IEnumerable<T>`, they are also `ICollection<T>` — meaning the entire dataset is already fully loaded into memory before you pass it to the writer. In these cases, the streaming benefits of this library are diminished or lost.
+>
+> To take advantage of streaming — especially for large datasets — make sure to use `IAsyncEnumerable<T>` or a lazily-yielding `IEnumerable<T>` (e.g., generated by `yield return`) to get true streaming benefits.
+
+> ⚠️ **Another trap for new players:** While this package is designed to write directly to a stream, use caution when writing to an HTTP stream.
+>
+> If an exception occurs halfway through the export — and you've already set the HTTP status code to `200 OK` — the client has no reliable way to detect that the response was incomplete or corrupted.
+
+### Writing a Single Sheet Using `ExportAsync`
+
+```csharp
+await ExcelWriter.ExportAsync(outputStream, GetPeopleAsync(), sheetName: "People");
+```
+
+### Adding Custom Metadata
+
+```csharp
+var radMetadata = new WorkbookMetadata
+{
+    Creator = "Cru Jones",
+    Company = "Rad Racing",
+    ApplicationName = "BMXcel",
+    Version = "1986.3.21",
+};
+
+await ExcelWriter.ExportAsync(outputStream, GetPeopleAsync(), sheetName: "People", metadata: radMetadata);
+```
+
+### Writing Multiple Sheets Using the Disposable `ExcelWriter`
+
+```csharp
+await using (var excelWriter = new ExcelWriter(outputStream))
+{
+    await excelWriter.WriteSheetAsync(GetProductsAsync(), sheetName: "Products");
+    await excelWriter.WriteSheetAsync(GetCustomersAsync(), sheetName: "Customers");
+}
+```
+
+### Using Custom Sheet Options
+
+```csharp
+var options = new WorksheetOptions(applyZebraStripe: true, freezeHeaderRow: true, boldHeaderRow: true)
+    .SetupColumn("Name", new() { Width = 30 })
+    .SetupColumn("Age", new() { Width = 7, HorizontalAlignment = HorizontalAlignmentStyles.Center })
+    .SetupColumn("BirthDate", new() { Width = 20 });
+
+await ExcelWriter.ExportAsync(outputStream, peopleData, sheetName: "People", sheetOptions: options);
+```
+
+## Notes
+
+- ExcelWriter implements both `IDisposable` and `IAsyncDisposable`, so remember to dispose it properly (important data is written upon disposal at both the XML and ZIP levels).
+- All output is written directly to the provided stream (e.g., `FileStream`, etc.)
+- No temporary files or seekable streams required
+- Format is compatible with OpenXML (Excel, Google Sheets, and LibreOffice)
 
 ---
 
-Made with &hearts; by Jake
+Made with &hearts; by Jake — Licensed under the [MIT License](https://mit-license.org/)
