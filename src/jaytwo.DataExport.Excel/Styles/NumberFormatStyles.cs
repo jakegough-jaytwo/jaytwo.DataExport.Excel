@@ -2,20 +2,50 @@ namespace jaytwo.DataExport.Excel.Styles;
 
 public enum NumberFormatStyles
 {
-    Default,
-    Integer,
-    ThousandsSeparator,
-    DateOnly,
-    TimeOnly12HourNoSeconds,
-    TimeOnly24HourNoSeconds,
-    TimeOnly12HourWithSeconds,
-    TimeOnly24HourWithSeconds,
-    DateTime,
-    DateOnlyIso8601,
-    DateTimeIso8601,
-    ElapsedTime,
-    ScientificNotation,
-    Text,
+    General = 0,
+    NumberNoDecimals = 1,
+    NumberDecimalTwoPlaces = 2,
+    NumberThousandsSeparator = 3,
+    NumberThousandsSeparatorTwoDecimals = 4,
+    CurrencyNoDecimals = 5,
+    CurrencyNoDecimalsRedNegative = 6,
+    CurrencyTwoDecimals = 7,
+    CurrencyTwoDecimalsRedNegative = 8,
+    PercentNoDecimals = 9,
+    PercentTwoDecimals = 10,
+    Scientific = 11,
+    FractionOneDigit = 12,
+    FractionTwoDigit = 13,
+    DateShort = 14,           // mm-dd-yy
+    DateDayMonthShortYear = 15, // d-mmm-yy
+    DateDayMonth = 16,        // d-mmm
+    DateMonthYear = 17,       // mmm-yy
+    Time12Hour = 18,
+    Time12HourWithSeconds = 19,
+    Time24Hour = 20,
+    Time24HourWithSeconds = 21,
+    DateTime = 22,
+    AccountingNoCurrencySymbolNoDecimals = 37,
+    AccountingNoCurrencySymbolNoDecimalsRedNegative = 38,
+    AccountingNoCurrencySymbolTwoDecimals = 39,
+    AccountingNoCurrencySymbolTwoDecimalsRedNegative = 40,
+    AccountingNoDecimals = 41,
+    AccountingNoDecimalsRedNegative = 42,
+    AccountingTwoDecimals = 43,
+    AccountingTwoDecimalsRedNegative = 44,
+    TimeMinutesSeconds = 45,
+    TimeElapsed = 46,
+    TimeMinutesSecondsTenths = 47,
+    ScientificCompact = 48,
+    Text = 49,
+
+    // CUSTOM formats >= 164
+    DateSortable = 164,
+    DateTimeSortable = 165,
+    DateDayOfWeek = 166,
+    DateDayOfWeekShort = 167,
+    DateYearMonth = 168,
+    DateMonthDay = 169,
 }
 
 /*

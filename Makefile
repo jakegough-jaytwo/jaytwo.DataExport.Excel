@@ -1,9 +1,9 @@
 TOPDIR=$(shell pwd)
 
-BUILD_SLN=./jaytwo.StreamingExcelExport.sln
-BUILD_DIR=./src/jaytwo.StreamingExcelExport
-BUILD_TEST_DIR=./test/jaytwo.StreamingExcelExport.Tests
-BUILD_TRX_FILENAME=jaytwo.StreamingExcelExport.Tests.trx
+BUILD_SLN=./jaytwo.DataExport.Excel.sln
+BUILD_DIR=./src/jaytwo.DataExport.Excel
+BUILD_TEST_DIR=./test/jaytwo.DataExport.Excel.Tests
+BUILD_TRX_FILENAME=jaytwo.DataExport.Excel.Tests.trx
 BUILD_PACKED_DIR=${TOPDIR}/out/packed
 
 NUGET_SOURCE_URL?=https://api.nuget.org/v3/index.json

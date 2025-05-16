@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,7 +29,7 @@ internal class StylesWriter : XmlDocumentWriter
         => CellXfs.GetStyleIndex(
             fontStyle ?? FontStyles.Default,
             fillStyle ?? FillStyles.Default,
-            numberFormatStyle ?? NumberFormatStyles.Default,
+            numberFormatStyle ?? NumberFormatStyles.General,
             horizontalAlignmentStyle ?? HorizontalAlignmentStyles.Default);
 
     protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
@@ -198,7 +200,7 @@ internal class StylesWriter : XmlDocumentWriter
             FontId = fontId;
             FillStyle = fillStyle ?? FillStyles.Default;
             FillId = fillId;
-            NumberFormatStyle = numberFormatStyle ?? NumberFormatStyles.Default;
+            NumberFormatStyle = numberFormatStyle ?? NumberFormatStyles.General;
             NumFmtId = numFmtId;
             HorizontalAlignmentStyle = horizontalAlignmentStyle ?? HorizontalAlignmentStyles.Default;
             AlignmentHorizontal = alignmentHorizontal;
@@ -252,28 +254,10 @@ internal class StylesWriter : XmlDocumentWriter
                 new CellXfs(fillStyle: FillStyles.Stripe, fillId: "2"),
             };
 
-            var numberFormatVariants = new[]
-            {
-                new CellXfs(numberFormatStyle: NumberFormatStyles.Default),
-                new CellXfs(numberFormatStyle: NumberFormatStyles.Integer, numFmtId: "1"),
-                new CellXfs(numberFormatStyle: NumberFormatStyles.ThousandsSeparator, numFmtId: "3"),
-
-                new CellXfs(numberFormatStyle: NumberFormatStyles.DateOnly, numFmtId: "14"),
-
-                new CellXfs(numberFormatStyle: NumberFormatStyles.TimeOnly12HourNoSeconds, numFmtId: "18"),
-                new CellXfs(numberFormatStyle: NumberFormatStyles.TimeOnly12HourWithSeconds, numFmtId: "19"),
-                new CellXfs(numberFormatStyle: NumberFormatStyles.TimeOnly24HourNoSeconds, numFmtId: "20"),
-                new CellXfs(numberFormatStyle: NumberFormatStyles.TimeOnly24HourWithSeconds, numFmtId: "21"),
-                new CellXfs(numberFormatStyle: NumberFormatStyles.DateTime, numFmtId: "22"),
-
-                new CellXfs(numberFormatStyle: NumberFormatStyles.ElapsedTime, numFmtId: "46"),
-
-                new CellXfs(numberFormatStyle: NumberFormatStyles.ScientificNotation, numFmtId: "48"),
-                new CellXfs(numberFormatStyle: NumberFormatStyles.Text, numFmtId: "49"),
-
-                new CellXfs(numberFormatStyle: NumberFormatStyles.DateOnlyIso8601, numFmtId: "165"),
-                new CellXfs(numberFormatStyle: NumberFormatStyles.DateTimeIso8601, numFmtId: "166"),
-            };
+            var numberFormatVariants = Enum.GetValues(typeof(NumberFormatStyles))
+                .Cast<NumberFormatStyles>()
+                .Select(x => new CellXfs(numberFormatStyle: x, numFmtId: $"{(int)x}"))
+                .ToArray();
 
             var alignmentHorizontalVariants = new[]
             {
@@ -321,8 +305,12 @@ internal class StylesWriter : XmlDocumentWriter
         public static NumFmt[] All { get; } = new[]
         {
             // custom formats start at 165
-            new NumFmt(numFmtId: "165", formatCode: "yyyy-mm-dd"), // ISO8601 Date Only
-            new NumFmt(numFmtId: "166", formatCode: "yyyy-mm-dd\"T\"hh:mm:ss"), // ISO8601 Date+Time
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateSortable}", formatCode: "yyyy-mm-dd"), // ISO8601 Date Only
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateTimeSortable}", formatCode: "yyyy-mm-dd\"T\"hh:mm:ss"), // ISO8601 Date+Time
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateDayOfWeek}", formatCode: "dddd"), // Day of Week
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateDayOfWeekShort}", formatCode: "ddd"), // Short Day of Week
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateYearMonth}", formatCode: ExcelFormatHelper.GetExcelYearMonthFormat(CultureInfo.InvariantCulture)),
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateMonthDay}", formatCode: ExcelFormatHelper.GetExcelMonthDayFormat(CultureInfo.InvariantCulture)),
         };
 
         public string NumFmtId { get; }

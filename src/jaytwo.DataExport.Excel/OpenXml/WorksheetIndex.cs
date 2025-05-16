@@ -22,13 +22,14 @@ internal class WorksheetIndex
 
     public WorksheetSpec Add(string sheetName)
     {
-        var sheetTag = GetSheetTag(sheetName);
+        var sheetId = GetNextSheetId();
+        var sheetTag = $"sheet{sheetId}";
         var relationship = _relationships.AddSheet(sheetTag);
 
         var sheet = new WorksheetSpec(
             sheetName: sheetName,
             sheetTag: sheetTag,
-            sheetId: GetNextSheetId(),
+            sheetId: $"{sheetId}",
             relationshipId: relationship.Id);
 
         _sheets.Add(sheet);
@@ -36,7 +37,5 @@ internal class WorksheetIndex
         return sheet;
     }
 
-    private string GetNextSheetId() => $"{_sheets.Count + 1}";
-
-    private string GetSheetTag(string sheetName) => sheetName.ToLower();
+    private int GetNextSheetId() => _sheets.Count + 1;
 }

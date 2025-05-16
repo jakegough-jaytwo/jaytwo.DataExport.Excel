@@ -59,7 +59,7 @@ internal class CellFormatInfo
                 return value;
 
             case TimeSpan ts:
-                numberFormat = NumberFormatStyles.ElapsedTime;
+                numberFormat = NumberFormatStyles.TimeElapsed;
                 return ts.TotalSeconds;
 
             case DateTime dt:
@@ -72,11 +72,11 @@ internal class CellFormatInfo
 
 #if NET5_0_OR_GREATER
             case DateOnly d:
-                numberFormat = NumberFormatStyles.DateOnly;
+                numberFormat = NumberFormatStyles.DateShort;
                 return GetExcelSerialDate(d);
 
             case TimeOnly t:
-                numberFormat = NumberFormatStyles.TimeOnly24HourWithSeconds;
+                numberFormat = NumberFormatStyles.Time24Hour;
                 return GetExcelSerialDate(t);
 #endif
 
@@ -98,7 +98,7 @@ internal class CellFormatInfo
     {
         if (date.TimeOfDay == TimeSpan.Zero)
         {
-            return NumberFormatStyles.DateOnly;
+            return NumberFormatStyles.DateShort;
         }
         else
         {
