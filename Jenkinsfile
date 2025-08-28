@@ -1,4 +1,4 @@
 library 'JenkinsBuilderLibrary'
 
-helper.loadNuGetProjectDefaults('jaytwo.DataExport.Excel')
-helper.runNuGetProject()
+nugetProject.build(
+    gitHubRepository: 'jaytwo.DataExport.Excel')
