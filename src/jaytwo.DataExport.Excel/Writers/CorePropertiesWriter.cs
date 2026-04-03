@@ -8,23 +8,30 @@ namespace jaytwo.DataExport.Excel.Writers;
 
 internal class CorePropertiesWriter : XmlDocumentWriter
 {
-    public CorePropertiesWriter(XmlWriter writer, string? creator)
-        : this(writer, creator, DateTime.UtcNow)
-    {
-    }
-
-    public CorePropertiesWriter(XmlWriter writer, string? creator, DateTime createdUtc)
-        : this(writer, creator, creator, createdUtc, createdUtc)
-    {
-    }
-
-    public CorePropertiesWriter(XmlWriter writer, string? creator, string? lastModifiedBy, DateTime createdUtc, DateTime modifiedUtc)
+    public CorePropertiesWriter(
+        XmlWriter writer,
+        string? creator,
+        DateTime? createdUtc = default,
+        string? lastModifiedBy = default,
+        DateTime? modifiedUtc = default,
+        string? title = default,
+        string? subject = default,
+        string? description = default,
+        string? keywords = default,
+        string? category = default)
         : base(writer)
     {
+        DateTime createdAtOrDefault = createdUtc ?? DateTime.UtcNow;
+
         Creator = creator;
         LastModifiedBy = lastModifiedBy;
-        CreatedUtc = createdUtc;
-        ModifiedUtc = modifiedUtc;
+        CreatedUtc = createdUtc ?? createdAtOrDefault;
+        ModifiedUtc = modifiedUtc ?? createdAtOrDefault;
+        Title = title;
+        Subject = subject;
+        Description = description;
+        Keywords = keywords;
+        Category = category;
     }
 
     public string? Creator { get; }
@@ -35,6 +42,16 @@ internal class CorePropertiesWriter : XmlDocumentWriter
 
     public DateTime ModifiedUtc { get; }
 
+    public string? Title { get; }
+
+    public string? Subject { get; }
+
+    public string? Description { get; }
+
+    public string? Keywords { get; }
+
+    public string? Category { get; }
+
     protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
     {
         await using (CreateElementScope("cp", "coreProperties", Namespaces.cp))
@@ -44,9 +61,34 @@ internal class CorePropertiesWriter : XmlDocumentWriter
             WriteAttributeString("xmlns", "dcmitype", null, "http://purl.org/dc/dcmitype/");
             WriteAttributeString("xmlns", "xsi", null, Namespaces.xsi);
 
+            if (!string.IsNullOrEmpty(Title))
+            {
+                await WriteElementStringAsync("dc", "title", Namespaces.dc, Title);
+            }
+
+            if (!string.IsNullOrEmpty(Subject))
+            {
+                await WriteElementStringAsync("dc", "subject", Namespaces.dc, Subject);
+            }
+
+            if (!string.IsNullOrEmpty(Description))
+            {
+                await WriteElementStringAsync("dc", "description", Namespaces.dc, Description);
+            }
+
             if (!string.IsNullOrEmpty(Creator))
             {
                 await WriteElementStringAsync("dc", "creator", Namespaces.dc, Creator);
+            }
+
+            if (!string.IsNullOrEmpty(Keywords))
+            {
+                await WriteElementStringAsync("cp", "keywords", Namespaces.cp, Keywords);
+            }
+
+            if (!string.IsNullOrEmpty(Category))
+            {
+                await WriteElementStringAsync("cp", "category", Namespaces.cp, Category);
             }
 
             if (!string.IsNullOrEmpty(LastModifiedBy))

@@ -30,7 +30,8 @@ internal class WorksheetIndex
             sheetName: sheetName,
             sheetTag: sheetTag,
             sheetId: $"{sheetId}",
-            relationshipId: relationship.Id);
+            relationshipId: relationship.Id,
+            worksheetUid: Guid.NewGuid().ToString("B").ToUpperInvariant());
 
         _sheets.Add(sheet);
 
