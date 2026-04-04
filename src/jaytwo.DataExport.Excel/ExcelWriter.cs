@@ -16,13 +16,15 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
 {
     private const string DefaultSheetName = "Sheet1";
 
+    private readonly StyleRegistry _styleRegistry = new();
+
     private IZipWriter _zip;
     private RelationshipIndex _relationships;
     private WorksheetIndex _sheetsIndex;
     private bool _initialized;
 
     /// <summary>
-    /// Initializes a new <see cref="ExcelWriter"/> that writes a workbook to the specified output stream.
+    /// Initializes a new instance of the <see cref="ExcelWriter"/> class that writes a workbook to the specified output stream.
     /// </summary>
     /// <param name="outputStream">The destination stream that will receive the XLSX content.</param>
     /// <param name="metadata">Optional workbook metadata written into the package.</param>
@@ -203,7 +205,7 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
 
         sheetOptions ??= new WorksheetOptions();
         var sheetSpec = _sheetsIndex.Add(sheetName);
-        await WriteAsync(new WorksheetWriterDataReaderContext(sheetSpec.SheetTag, sheetSpec.WorksheetUid, sheetOptions, data), cancellationToken);
+        await WriteAsync(new WorksheetWriterDataReaderContext(sheetSpec.SheetTag, sheetSpec.WorksheetUid, sheetOptions, data, _styleRegistry), cancellationToken);
     }
 
     /// <summary>
@@ -239,7 +241,7 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
 
         sheetOptions ??= new WorksheetOptions();
         var sheetSpec = _sheetsIndex.Add(sheetName);
-        await WriteAsync(new WorksheetWriterContext<T>(sheetSpec.SheetTag, sheetSpec.WorksheetUid, sheetOptions, data), cancellationToken);
+        await WriteAsync(new WorksheetWriterContext<T>(sheetSpec.SheetTag, sheetSpec.WorksheetUid, sheetOptions, data, _styleRegistry), cancellationToken);
     }
 
     /// <summary>
@@ -249,7 +251,7 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
     public async Task WriteStyleSheetAsync(CancellationToken cancellationToken = default)
     {
         _relationships.AddStyleSheet();
-        await WriteAsync(new StylesWriterContext(), cancellationToken);
+        await WriteAsync(new StylesWriterContext(_styleRegistry), cancellationToken);
     }
 
     /// <summary>
@@ -296,13 +298,13 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
         {
             await WriteAsync(new DotRelsWriterContext(), cancellationToken);
             await WriteAsync(BuildCorePropertiesWriterContext(), cancellationToken);
-            await WriteStyleSheetAsync(cancellationToken);
             _initialized = true;
         }
     }
 
     private async ValueTask WriteFinishAsync(CancellationToken cancellationToken = default)
     {
+        await WriteStyleSheetAsync(cancellationToken);
         await WriteAsync(new WorkbookRelationshipsWriterContext(_relationships.Relationships), cancellationToken);
         await WriteAsync(new WorkbookWriterContext(_sheetsIndex.Sheets), cancellationToken);
         await WriteAsync(new ContentTypesWriterContext(_sheetsIndex.SheetTags, _relationships.HasStyleSheet), cancellationToken);

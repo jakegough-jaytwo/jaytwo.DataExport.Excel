@@ -188,8 +188,11 @@ public class Zip64LocalFileHeaderTests
         // arrange
         var header = new Zip64LocalFileHeader();
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => header.WriteTo(null!));
+        // act
+        var exception = Record.Exception(() => header.WriteTo(null!));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -199,8 +202,11 @@ public class Zip64LocalFileHeaderTests
         var header = new Zip64LocalFileHeader();
         using var stream = new MemoryStream(new byte[64], writable: false);
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => header.WriteTo(stream));
+        // act
+        var exception = Record.Exception(() => header.WriteTo(stream));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -237,8 +243,11 @@ public class Zip64LocalFileHeaderTests
             ExtraFieldLength = 5,
         };
 
-        // act & assert
-        Assert.False(header.HasValidZip64ExtraField);
+        // act
+        var hasValidZip64ExtraField = header.HasValidZip64ExtraField;
+
+        // assert
+        Assert.False(hasValidZip64ExtraField);
     }
 
     [Fact]

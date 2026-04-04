@@ -20,9 +20,13 @@ public class ZipStructureValidationTests
     [InlineData(false)]
     public async Task CentralDirectoryCrcMatchesContent(bool useZip64)
     {
+        // arrange
         byte[] content = GetRandomBytes();
+
+        // act
         var zipBytes = await CreateZipPackageBytes(content, useZip64: useZip64);
 
+        // assert
         // Find central directory entry
         var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
         Assert.True(centralDirPos >= 0, "Central directory not found");
@@ -40,10 +44,14 @@ public class ZipStructureValidationTests
     [Fact]
     public async Task Zip32_WritesCorrectFileAndCentralDirectoryHeaders()
     {
+        // arrange
         string filename = "test.txt";
         byte[] content = GetRandomBytes();
+
+        // act
         byte[] zipBytes = await CreateZipPackageBytes(content, filename, useZip64: false);
 
+        // assert
         // Find all signature positions
         var localHeaderPos = FindSignature(zipBytes, Zip32LocalFileHeader.KnownSignature);
         var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
@@ -71,10 +79,14 @@ public class ZipStructureValidationTests
     [Fact]
     public async Task Zip64_WritesCorrectStructure()
     {
+        // arrange
         string filename = "zip64.txt";
         byte[] content = GetRandomBytes();
+
+        // act
         byte[] zipBytes = await CreateZipPackageBytes(content, filename, useZip64: true);
 
+        // assert
         // Signature positions
         int localHeaderPos = FindSignature(zipBytes, Zip64LocalFileHeader.KnownSignature);
         int centralDirPos = FindSignature(zipBytes, Zip64CentralDirectoryEntry.KnownSignature);
@@ -110,9 +122,13 @@ public class ZipStructureValidationTests
     [InlineData(65537)]
     public async Task Zip32_CentralDirectory_UncompressedSizeMatches(int length)
     {
+        // arrange
         byte[] content = GetRandomBytes(length);
+
+        // act
         byte[] zipBytes = await CreateZipPackageBytes(content, useZip64: false);
 
+        // assert
         var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
         Assert.True(centralDirPos >= 0);
 
@@ -123,9 +139,13 @@ public class ZipStructureValidationTests
     [Fact]
     public async Task Zip32_CentralDirectory_ExternalFileAttributesAreZero()
     {
+        // arrange
         byte[] content = GetRandomBytes();
+
+        // act
         byte[] zipBytes = await CreateZipPackageBytes(content, useZip64: false);
 
+        // assert
         var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
         Assert.True(centralDirPos >= 0);
 
@@ -138,9 +158,13 @@ public class ZipStructureValidationTests
     [InlineData("abcd")]
     public async Task Zip32_CentralDirectory_FileCommentMatches(string? comment)
     {
+        // arrange
         byte[] content = GetRandomBytes();
+
+        // act
         byte[] zipBytes = await CreateZipPackageBytes(content, comment: comment, useZip64: false);
 
+        // assert
         var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
         Assert.True(centralDirPos >= 0);
 
@@ -156,10 +180,14 @@ public class ZipStructureValidationTests
     [Fact]
     public async Task Zip32_CentralDirectory_FileNameMatches()
     {
+        // arrange
         string filename = "mylongfilename.txt";
         byte[] content = GetRandomBytes();
+
+        // act
         byte[] zipBytes = await CreateZipPackageBytes(content, filename, useZip64: false);
 
+        // assert
         var centralDirPos = FindSignature(zipBytes, Zip32CentralDirectoryEntry.KnownSignature);
         Assert.True(centralDirPos >= 0);
 

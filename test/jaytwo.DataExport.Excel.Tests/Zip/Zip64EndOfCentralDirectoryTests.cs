@@ -250,8 +250,11 @@ public class Zip64EndOfCentralDirectoryTests
             CentralDirectoryOffset = hasDirOffset ? 456UL : null,
         };
 
-        // act & assert
-        var ex = Assert.Throws<InvalidOperationException>(() => eocd.GetBytes(validate: true));
+        // act
+        var exception = Record.Exception(() => eocd.GetBytes(validate: true));
+
+        // assert
+        var ex = Assert.IsType<InvalidOperationException>(exception);
         Assert.Contains(expectedParam, ex.Message);
     }
 
@@ -261,8 +264,11 @@ public class Zip64EndOfCentralDirectoryTests
         // arrange
         var eocd = new Zip64EndOfCentralDirectory();
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => eocd.WriteTo(null!));
+        // act
+        var exception = Record.Exception(() => eocd.WriteTo(null!));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -272,8 +278,11 @@ public class Zip64EndOfCentralDirectoryTests
         var eocd = new Zip64EndOfCentralDirectory();
         using var readOnly = new MemoryStream(new byte[64], writable: false);
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => eocd.WriteTo(readOnly));
+        // act
+        var exception = Record.Exception(() => eocd.WriteTo(readOnly));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     // --- Helpers ---

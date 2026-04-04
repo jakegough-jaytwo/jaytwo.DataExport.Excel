@@ -85,8 +85,11 @@ public class Zip64DataDescriptorTests
         // arrange
         var descriptor = new Zip64DataDescriptor();
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => descriptor.WriteTo(null!));
+        // act
+        var exception = Record.Exception(() => descriptor.WriteTo(null!));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -96,8 +99,11 @@ public class Zip64DataDescriptorTests
         var descriptor = new Zip64DataDescriptor();
         using var readOnlyStream = new MemoryStream(new byte[32], writable: false);
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => descriptor.WriteTo(readOnlyStream));
+        // act
+        var exception = Record.Exception(() => descriptor.WriteTo(readOnlyStream));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -143,8 +149,11 @@ public class Zip64DataDescriptorTests
 
         using var stream = new MemoryStream();
 
-        // act & assert
-        var ex = Assert.Throws<InvalidOperationException>(() => descriptor.WriteTo(stream, validate: true));
+        // act
+        var exception = Record.Exception(() => descriptor.WriteTo(stream, validate: true));
+
+        // assert
+        var ex = Assert.IsType<InvalidOperationException>(exception);
         Assert.Contains(expectedField, ex.Message);
     }
 
@@ -168,8 +177,11 @@ public class Zip64DataDescriptorTests
         // arrange
         var bytes = new byte[10];
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => Zip64DataDescriptor.Parse(bytes));
+        // act
+        var exception = Record.Exception(() => Zip64DataDescriptor.Parse(bytes));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     // --- Helpers ---

@@ -121,6 +121,141 @@ var options = new WorksheetOptions(applyZebraStripe: true, freezeHeaderRow: true
 await ExcelWriter.ExportAsync(outputStream, peopleData, sheetName: "People", sheetOptions: options);
 ```
 
+### Using CultureInfo for Locale-Aware Formats
+
+Built-in Excel number formats are interpreted by Excel using the viewer's locale. If you want the generated workbook to carry explicit culture-specific format codes, set a workbook culture or a per-column culture.
+
+For workbook-wide locale-aware formats, set `WorkbookMetadata.Culture`:
+
+```csharp
+using System.Globalization;
+
+var metadata = new WorkbookMetadata
+{
+    Culture = new CultureInfo("ja-JP"),
+};
+
+await ExcelWriter.ExportAsync(
+    outputStream,
+    peopleData,
+    sheetName: "People",
+    metadata: metadata);
+```
+
+For per-column locale-aware formats, use `LocaleFormat` with `Culture` on the column definition:
+
+```csharp
+using System.Globalization;
+
+var options = new WorksheetOptions()
+    .SetupColumn("UsdAmount", new()
+    {
+        LocaleFormat = LocaleNumberFormatStyles.Currency,
+        Culture = new CultureInfo("en-US"),
+    })
+    .SetupColumn("BrlAmount", new()
+    {
+        LocaleFormat = LocaleNumberFormatStyles.Currency,
+        Culture = new CultureInfo("pt-BR"),
+    });
+
+await ExcelWriter.ExportAsync(outputStream, amounts, sheetName: "Amounts", sheetOptions: options);
+```
+
+Use `NumberFormat` when Excel's built-in formats are sufficient. Use `LocaleFormat` when you want this library to emit explicit culture-specific format codes into the workbook.
+
+### S3-Friendly Exports
+
+This library is a good fit for S3-oriented export workflows because:
+
+- The workbook is written incrementally, so memory stays bounded even for large exports.
+- The ZIP writer does not require seeking, which makes it compatible with streaming-style destinations.
+- You can write to any `Stream`, so the export step can plug into whatever upload pipeline your application already uses.
+
+One practical pattern is to stream the workbook into a [`Pipe` from `System.IO.Pipelines`](https://learn.microsoft.com/en-us/dotnet/api/system.io.pipelines.pipe), which lets one side write bytes while the other side reads them. In this example, `ExcelWriter` writes to the `PipeWriter`, and the upload code reads from the `PipeReader` to assemble and upload `5 MiB` S3 multipart parts:
+
+```csharp
+using Amazon.S3.Model;
+using System.IO.Pipelines;
+using jaytwo.DataExport.Excel;
+
+public static async Task ExportPeopleToS3Async(IAsyncEnumerable<Person> people)
+{
+    // Cancellation tokens and detailed AWS request parameters are omitted for brevity.
+
+    var pipe = new Pipe();
+    const int partSize = 5 * 1024 * 1024; // S3 requires each non-final multipart upload part to be at least 5 MiB.
+
+    var multipartUpload = await s3.InitiateMultipartUploadAsync(...); // Supply the bucket name and object key here.
+
+    // Start both tasks before awaiting either one so the pipe can stream data from the workbook writer to the S3 uploader.
+    var writeWorkbookTask = Task.Run(async () =>
+    {
+        await using var output = pipe.Writer.AsStream();
+
+        try
+        {
+            await ExcelWriter.ExportAsync(output, people, sheetName: "People");
+            await pipe.Writer.CompleteAsync();
+        }
+        catch (Exception ex)
+        {
+            await pipe.Writer.CompleteAsync(ex);
+            throw;
+        }
+    });
+
+    var uploadPartsTask = Task.Run(async () =>
+    {
+        var buffer = new byte[partSize];
+        var bufferedBytes = 0;
+        var partNumber = 1;
+        var uploadedParts = new List<PartETag>();
+        int bytesRead;
+        await using var input = pipe.Reader.AsStream();
+
+        while ((bytesRead = await input.ReadAsync(buffer, bufferedBytes, partSize - bufferedBytes)) > 0)
+        {
+            bufferedBytes += bytesRead;
+
+            if (bufferedBytes == partSize)
+            {
+                uploadedParts.Add(await UploadBufferedPartAsync(...)); // Upload one full-sized non-final part.
+                bufferedBytes = 0;
+                partNumber++;
+            }
+        }
+
+        if (bufferedBytes > 0)
+        {
+            uploadedParts.Add(await UploadBufferedPartAsync(...)); // Upload the final partial part, if any bytes remain.
+        }
+
+        await s3.CompleteMultipartUploadAsync(...); // Finalize the object using the uploaded part list.
+    });
+
+    try
+    {
+        await Task.WhenAll(writeWorkbookTask, uploadPartsTask);
+    }
+    catch
+    {
+        await s3.AbortMultipartUploadAsync(...); // Abort the in-progress upload so unfinished parts are discarded.
+        throw;
+    }
+}
+```
+
+The important part is the shape of the solution:
+
+- `ExcelWriter` writes forward-only into the pipe.
+- The upload side fills a `5 MiB` buffer from that pipe.
+- Each full buffer becomes one S3 multipart upload part.
+- The remaining bytes become the final part.
+- If either side fails, abort the multipart upload so S3 does not retain unfinished parts.
+
+That keeps memory bounded without needing to know the final workbook size ahead of time.
+
 ## Notes
 
 - `ExportAsync` is the simplest API for one-sheet exports

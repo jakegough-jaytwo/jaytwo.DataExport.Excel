@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
@@ -7,9 +6,12 @@ namespace jaytwo.DataExport.Excel.Writers;
 
 internal class StylesWriterContext : IWriterContext
 {
-    public StylesWriterContext()
+    public StylesWriterContext(StyleRegistry styleRegistry)
     {
+        StyleRegistry = styleRegistry;
     }
+
+    public StyleRegistry StyleRegistry { get; }
 
     public string ZipPackagePath => "xl/styles.xml";
 

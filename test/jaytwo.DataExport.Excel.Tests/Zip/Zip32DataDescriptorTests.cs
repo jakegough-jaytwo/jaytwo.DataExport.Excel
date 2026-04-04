@@ -85,8 +85,11 @@ public class Zip32DataDescriptorTests
             UncompressedSize = 100,
         };
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => descriptor.WriteTo(null!));
+        // act
+        var exception = Record.Exception(() => descriptor.WriteTo(null!));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -101,8 +104,11 @@ public class Zip32DataDescriptorTests
 
         using var readOnlyStream = new MemoryStream(new byte[32], writable: false);
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => descriptor.WriteTo(readOnlyStream));
+        // act
+        var exception = Record.Exception(() => descriptor.WriteTo(readOnlyStream));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -125,8 +131,11 @@ public class Zip32DataDescriptorTests
         // arrange
         var shortBytes = new byte[10];
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => Zip32DataDescriptor.Parse(shortBytes));
+        // act
+        var exception = Record.Exception(() => Zip32DataDescriptor.Parse(shortBytes));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -163,8 +172,11 @@ public class Zip32DataDescriptorTests
 
         using var stream = new MemoryStream();
 
-        // act & assert
-        Assert.Throws<InvalidOperationException>(() => descriptor.WriteTo(stream, validate: true));
+        // act
+        var exception = Record.Exception(() => descriptor.WriteTo(stream, validate: true));
+
+        // assert
+        Assert.IsType<InvalidOperationException>(exception);
     }
 
     // --- Helpers ---

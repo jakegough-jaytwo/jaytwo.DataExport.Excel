@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using jaytwo.DataExport.Excel.OpenXml;
+using jaytwo.DataExport.Excel.Styles;
 using jaytwo.DataExport.Excel.Writers.Xml;
 
 namespace jaytwo.DataExport.Excel.Writers;
@@ -19,18 +21,21 @@ internal abstract class WorksheetWriterBase : XmlDocumentWriter
     private readonly string _worksheetUid;
     private readonly IList<string> _fieldNames;
     private readonly IDictionary<string, (int ColumnNumber, ColumnDefinition? ColumnLayout)> _fieldDictionary;
+    private readonly StyleRegistry _styleRegistry;
 
     protected WorksheetWriterBase(
         WorksheetOptions options,
         string worksheetUid,
         XmlWriter writer,
-        IDictionary<string, (int ColumnNumber, ColumnDefinition? ColumnLayout)> fieldDictionary)
+        IDictionary<string, (int ColumnNumber, ColumnDefinition? ColumnLayout)> fieldDictionary,
+        StyleRegistry styleRegistry)
         : base(writer)
     {
         _options = options;
         _worksheetUid = worksheetUid;
         _fieldDictionary = fieldDictionary;
         _fieldNames = fieldDictionary.Keys.ToArray();
+        _styleRegistry = styleRegistry;
     }
 
     protected IList<string> FieldNames => _fieldNames;
@@ -128,12 +133,30 @@ internal abstract class WorksheetWriterBase : XmlDocumentWriter
                 var cell = $"{column}{rowNumber}";
 
                 var columnLayout = GetColumnLayout(columnNumber);
-                var cellInfo = CellFormatInfo.FromValue(
-                    value,
-                    zebraStripe,
-                    bold,
-                    columnLayout?.NumberFormat,
-                    columnLayout?.HorizontalAlignment);
+                CellFormatInfo cellInfo;
+                if (columnLayout?.LocaleFormat != null)
+                {
+                    var font = bold ? FontStyles.Bold : FontStyles.Default;
+                    var fill = zebraStripe ? FillStyles.Stripe : FillStyles.Default;
+                    var culture = columnLayout.Culture ?? CultureInfo.InvariantCulture;
+                    var styleId = _styleRegistry.GetOrRegisterStyleIndex(
+                        columnLayout.LocaleFormat.Value,
+                        culture,
+                        font,
+                        fill,
+                        columnLayout.HorizontalAlignment ?? HorizontalAlignmentStyles.Default);
+                    var outValue = CellFormatInfo.PrepareValue(value, out var dataType, out _);
+                    cellInfo = new CellFormatInfo(dataType, outValue, styleId);
+                }
+                else
+                {
+                    cellInfo = CellFormatInfo.FromValue(
+                        value,
+                        zebraStripe,
+                        bold,
+                        columnLayout?.NumberFormat,
+                        columnLayout?.HorizontalAlignment);
+                }
 
                 await WriteCellElementAsync(cell, cellInfo);
                 columnNumber++;

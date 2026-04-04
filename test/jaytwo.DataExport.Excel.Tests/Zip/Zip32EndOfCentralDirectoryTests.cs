@@ -145,8 +145,11 @@ public class Zip32EndOfCentralDirectoryTests
             CommentLength = 999,
         };
 
-        // act & assert
-        Assert.Throws<InvalidOperationException>(() => eocd.GetBytes(validate: true));
+        // act
+        var exception = Record.Exception(() => eocd.GetBytes(validate: true));
+
+        // assert
+        Assert.IsType<InvalidOperationException>(exception);
     }
 
     [Fact]
@@ -155,8 +158,11 @@ public class Zip32EndOfCentralDirectoryTests
         // arrange
         var eocd = new Zip32EndOfCentralDirectory();
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => eocd.WriteTo(null!));
+        // act
+        var exception = Record.Exception(() => eocd.WriteTo(null!));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -166,8 +172,11 @@ public class Zip32EndOfCentralDirectoryTests
         var eocd = new Zip32EndOfCentralDirectory();
         using var readOnly = new MemoryStream(new byte[64], writable: false);
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => eocd.WriteTo(readOnly));
+        // act
+        var exception = Record.Exception(() => eocd.WriteTo(readOnly));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Theory]
@@ -204,8 +213,11 @@ public class Zip32EndOfCentralDirectoryTests
             CommentLength = hasCommentLength ? (ushort)0 : null,
         };
 
-        // act & assert
-        var ex = Assert.Throws<InvalidOperationException>(() => eocd.GetBytes(validate: true));
+        // act
+        var exception = Record.Exception(() => eocd.GetBytes(validate: true));
+
+        // assert
+        var ex = Assert.IsType<InvalidOperationException>(exception);
         Assert.Contains(expectedField, ex.Message);
     }
 

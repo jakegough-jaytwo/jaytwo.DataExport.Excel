@@ -16,7 +16,7 @@ internal class WorksheetWriter<T> : WorksheetWriterBase
     private readonly IAsyncEnumerable<T> _data;
 
     public WorksheetWriter(WorksheetWriterContext<T> context, XmlWriter writer)
-        : base(context.Options, context.WorksheetUid, writer, BuildFieldDictionary(context.Options))
+        : base(context.Options, context.WorksheetUid, writer, BuildFieldDictionary(context.Options), context.StyleRegistry)
     {
         _data = context.Data;
     }

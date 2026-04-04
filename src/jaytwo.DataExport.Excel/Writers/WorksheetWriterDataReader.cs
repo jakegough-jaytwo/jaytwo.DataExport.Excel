@@ -13,8 +13,8 @@ internal class WorksheetWriterDataReader : WorksheetWriterBase
 {
     private readonly IDataReader _data;
 
-    public WorksheetWriterDataReader(string worksheetUid, WorksheetOptions options, IDataReader data, XmlWriter writer)
-        : base(options, worksheetUid, writer, BuildFieldDictionary(data, options))
+    public WorksheetWriterDataReader(string worksheetUid, WorksheetOptions options, IDataReader data, XmlWriter writer, StyleRegistry styleRegistry)
+        : base(options, worksheetUid, writer, BuildFieldDictionary(data, options), styleRegistry)
     {
         _data = data;
     }

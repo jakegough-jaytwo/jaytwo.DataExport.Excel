@@ -13,11 +13,16 @@ namespace jaytwo.DataExport.Excel.Writers;
 
 internal class StylesWriter : XmlDocumentWriter
 {
+    private readonly StyleRegistry _styleRegistry;
+
     public StylesWriter(StylesWriterContext context, XmlWriter writer)
         : base(writer)
     {
         Context = context;
+        _styleRegistry = context.StyleRegistry;
     }
+
+    public static int CellXfsStaticCount => CellXfs.StaticCount;
 
     protected StylesWriterContext Context { get; }
 
@@ -129,18 +134,26 @@ internal class StylesWriter : XmlDocumentWriter
 
     private async Task WriteNumFmts()
     {
-        await using (CreateElementScopeWithAttributes("numFmts", new() { { "count", $"{NumFmt.All.Length}" } }))
+        var numFmts = NumFmt.GetAll();
+        var localeNumFmts = _styleRegistry.GetNumFmts();
+        await using (CreateElementScopeWithAttributes("numFmts", new() { { "count", $"{numFmts.Length + localeNumFmts.Length}" } }))
         {
-            foreach (var numFmt in NumFmt.All)
+            foreach (var numFmt in numFmts)
             {
                 await WriteElementWithAttributes("numFmt", new() { { "numFmtId", numFmt.NumFmtId }, { "formatCode", numFmt.FormatCode } });
+            }
+
+            foreach (var (numFmtId, formatCode) in localeNumFmts)
+            {
+                await WriteElementWithAttributes("numFmt", new() { { "numFmtId", numFmtId }, { "formatCode", formatCode } });
             }
         }
     }
 
     private async Task WriteCellXfs()
     {
-        await using (CreateElementScopeWithAttributes("cellXfs", new() { { "count", $"{CellXfs.All.Count}" } }))
+        var localeEntries = _styleRegistry.GetCellXfs();
+        await using (CreateElementScopeWithAttributes("cellXfs", new() { { "count", $"{CellXfs.All.Count + localeEntries.Length}" } }))
         {
             foreach (var cellXfs in CellXfs.All)
             {
@@ -170,6 +183,35 @@ internal class StylesWriter : XmlDocumentWriter
                         WriteAttributeString("applyAlignment", "1");
 
                         await WriteElementWithAttributes("alignment", new() { { "horizontal", cellXfs.AlignmentHorizontal } });
+                    }
+                }
+            }
+
+            foreach (var entry in localeEntries)
+            {
+                await using (CreateElementScopeWithAttributes("xf", new() { { "xfId", "0" } }))
+                {
+                    if (!string.IsNullOrEmpty(entry.FontId))
+                    {
+                        WriteAttributeString("fontId", entry.FontId);
+                        WriteAttributeString("applyFont", "1");
+                    }
+
+                    if (!string.IsNullOrEmpty(entry.FillId))
+                    {
+                        WriteAttributeString("fillId", entry.FillId);
+                        WriteAttributeString("applyFill", "1");
+                    }
+
+                    WriteAttributeString("numFmtId", entry.NumFmtId);
+                    WriteAttributeString("applyNumberFormat", "1");
+
+                    // this needs to be last since it adds an inner element
+                    if (!string.IsNullOrEmpty(entry.AlignmentHorizontal))
+                    {
+                        WriteAttributeString("applyAlignment", "1");
+
+                        await WriteElementWithAttributes("alignment", new() { { "horizontal", entry.AlignmentHorizontal } });
                     }
                 }
             }
@@ -207,6 +249,8 @@ internal class StylesWriter : XmlDocumentWriter
         }
 
         public static IList<CellXfs> All { get; } = CreateAllVariants();
+
+        public static int StaticCount => All.Count;
 
         public string? FontId { get; }
 
@@ -302,19 +346,18 @@ internal class StylesWriter : XmlDocumentWriter
             FormatCode = formatCode;
         }
 
-        public static NumFmt[] All { get; } = new[]
-        {
-            // custom formats start at 165
-            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateSortable}", formatCode: "yyyy-mm-dd"), // ISO8601 Date Only
-            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateTimeSortable}", formatCode: "yyyy-mm-dd\"T\"hh:mm:ss"), // ISO8601 Date+Time
-            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateDayOfWeek}", formatCode: "dddd"), // Day of Week
-            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateDayOfWeekShort}", formatCode: "ddd"), // Short Day of Week
-            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateYearMonth}", formatCode: ExcelFormatHelper.GetExcelYearMonthFormat(CultureInfo.InvariantCulture)),
-            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateMonthDay}", formatCode: ExcelFormatHelper.GetExcelMonthDayFormat(CultureInfo.InvariantCulture)),
-        };
-
         public string NumFmtId { get; }
 
         public string FormatCode { get; }
+
+        public static NumFmt[] GetAll() => new[]
+        {
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateSortable}",        formatCode: "yyyy-mm-dd"),
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateTimeSortable}",    formatCode: "yyyy-mm-dd\"T\"hh:mm:ss"),
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateDayOfWeek}",       formatCode: "dddd"),
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateDayOfWeekShort}",  formatCode: "ddd"),
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateYearMonth}",       formatCode: ExcelFormatHelper.GetExcelYearMonthFormat(CultureInfo.InvariantCulture)),
+            new NumFmt(numFmtId: $"{(int)NumberFormatStyles.DateMonthDay}",        formatCode: ExcelFormatHelper.GetExcelMonthDayFormat(CultureInfo.InvariantCulture)),
+        };
     }
 }

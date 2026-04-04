@@ -102,8 +102,11 @@ public class Zip32LocalFileHeaderTests
         // arrange
         var header = new Zip32LocalFileHeader();
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => header.WriteTo(null!));
+        // act
+        var exception = Record.Exception(() => header.WriteTo(null!));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     [Fact]
@@ -113,8 +116,11 @@ public class Zip32LocalFileHeaderTests
         var header = new Zip32LocalFileHeader();
         using var stream = new MemoryStream(new byte[64], writable: false);
 
-        // act & assert
-        Assert.Throws<ArgumentException>(() => header.WriteTo(stream));
+        // act
+        var exception = Record.Exception(() => header.WriteTo(stream));
+
+        // assert
+        Assert.IsType<ArgumentException>(exception);
     }
 
     // --- Helpers ---

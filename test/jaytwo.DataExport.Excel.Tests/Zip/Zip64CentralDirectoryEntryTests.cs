@@ -250,8 +250,11 @@ public class Zip64CentralDirectoryEntryTests
         // arrange
         var entry = new Zip64CentralDirectoryEntry { FileName = "hello", FileNameLength = 999 };
 
-        // act & assert
-        Assert.Throws<InvalidOperationException>(() => entry.GetBytes(validate: true));
+        // act
+        var exception = Record.Exception(() => entry.GetBytes(validate: true));
+
+        // assert
+        Assert.IsType<InvalidOperationException>(exception);
     }
 
     [Fact]
@@ -260,8 +263,11 @@ public class Zip64CentralDirectoryEntryTests
         // arrange
         var entry = new Zip64CentralDirectoryEntry { FileComment = "hello", FileCommentLength = 999 };
 
-        // act & assert
-        Assert.Throws<InvalidOperationException>(() => entry.GetBytes(validate: true));
+        // act
+        var exception = Record.Exception(() => entry.GetBytes(validate: true));
+
+        // assert
+        Assert.IsType<InvalidOperationException>(exception);
     }
 
     [Fact]
@@ -270,8 +276,11 @@ public class Zip64CentralDirectoryEntryTests
         // arrange
         var entry = new Zip64CentralDirectoryEntry { ExtraField = new byte[] { 1, 2, 3, 4 }, ExtraFieldLength = 999 };
 
-        // act & assert
-        Assert.Throws<InvalidOperationException>(() => entry.GetBytes(validate: true));
+        // act
+        var exception = Record.Exception(() => entry.GetBytes(validate: true));
+
+        // assert
+        Assert.IsType<InvalidOperationException>(exception);
     }
 
     [Fact]

@@ -82,8 +82,11 @@ public class Zip64EndOfCentralDirectoryLocatorTests
         // arrange
         var locator = Zip64EndOfCentralDirectoryLocatorFactory.CreateLocator(0);
 
-        // act & assert
-        Assert.Throws<ArgumentNullException>(() => locator.WriteTo(null!));
+        // act
+        var exception = Record.Exception(() => locator.WriteTo(null!));
+
+        // assert
+        Assert.IsType<ArgumentNullException>(exception);
     }
 
     [Fact]
