@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -15,16 +14,14 @@ internal class StylesWriter : XmlDocumentWriter
 {
     private readonly StyleRegistry _styleRegistry;
 
-    public StylesWriter(StylesWriterContext context, XmlWriter writer)
-        : base(writer)
+    public StylesWriter(StyleRegistry styleRegistry)
     {
-        Context = context;
-        _styleRegistry = context.StyleRegistry;
+        _styleRegistry = styleRegistry;
     }
 
     public static int CellXfsStaticCount => CellXfs.StaticCount;
 
-    protected StylesWriterContext Context { get; }
+    public override string ZipPackagePath => "xl/styles.xml";
 
     public static int GetStyleIndex(
         FontStyles? fontStyle,
@@ -37,192 +34,173 @@ internal class StylesWriter : XmlDocumentWriter
             numberFormatStyle ?? NumberFormatStyles.General,
             horizontalAlignmentStyle ?? HorizontalAlignmentStyles.Default);
 
-    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
+    protected override async Task WriteRootElementAsync(XmlWriter writer, CancellationToken cancellationToken)
     {
-        await using (CreateElementScope("styleSheet", "http://schemas.openxmlformats.org/spreadsheetml/2006/main"))
+        await using (CreateElementScope(writer, "styleSheet", "http://schemas.openxmlformats.org/spreadsheetml/2006/main"))
         {
-            WriteAttributeString("xmlns", "mc", null, "http://schemas.openxmlformats.org/markup-compatibility/2006");
-            WriteAttributeString("mc", "Ignorable", "http://schemas.openxmlformats.org/markup-compatibility/2006", "x14ac x16r2 xr");
-            WriteAttributeString("xmlns", "x14ac", null, "http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac");
-            WriteAttributeString("xmlns", "x16r2", null, "http://schemas.microsoft.com/office/spreadsheetml/2015/02/main");
-            WriteAttributeString("xmlns", "xr", null, "http://schemas.microsoft.com/office/spreadsheetml/2014/revision");
+            WriteAttributeString(writer, "xmlns", "mc", null, "http://schemas.openxmlformats.org/markup-compatibility/2006");
+            WriteAttributeString(writer, "mc", "Ignorable", "http://schemas.openxmlformats.org/markup-compatibility/2006", "x14ac x16r2 xr");
+            WriteAttributeString(writer, "xmlns", "x14ac", null, "http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac");
+            WriteAttributeString(writer, "xmlns", "x16r2", null, "http://schemas.microsoft.com/office/spreadsheetml/2015/02/main");
+            WriteAttributeString(writer, "xmlns", "xr", null, "http://schemas.microsoft.com/office/spreadsheetml/2014/revision");
 
-            await WriteNumFmts();
-            await WriteFontsElementAsync();
-            await WriteFillsElementAsync();
-            await WriteBordersElementAsync();
-            await WriteCellXfs();
-            await WriteCellStyles();
+            await WriteNumFmts(writer);
+            await WriteFontsElementAsync(writer);
+            await WriteFillsElementAsync(writer);
+            await WriteBordersElementAsync(writer);
+            await WriteCellXfs(writer);
+            await WriteCellStyles(writer);
         }
     }
 
-    private async Task WriteFontsElementAsync()
+    private async Task WriteFontsElementAsync(XmlWriter writer)
     {
-        await using (CreateElementScopeWithAttributes("fonts", new() { { "count", "2" } }))
+        await using (CreateElementScopeWithAttributes(writer, "fonts", new() { { "count", "2" } }))
         {
-            await using (CreateElementScope("font"))
+            await using (CreateElementScope(writer, "font"))
             {
             }
 
-            await using (CreateElementScope("font"))
+            await using (CreateElementScope(writer, "font"))
             {
-                await using (CreateElementScope("b"))
+                await using (CreateElementScope(writer, "b"))
                 {
                 }
             }
         }
     }
 
-    private async Task WriteFillsElementAsync()
+    private async Task WriteFillsElementAsync(XmlWriter writer)
     {
-        await using (CreateElementScopeWithAttributes("fills", new() { { "count", "3" } }))
+        await using (CreateElementScopeWithAttributes(writer, "fills", new() { { "count", "3" } }))
         {
-            await using (CreateElementScope("fill"))
+            await using (CreateElementScope(writer, "fill"))
             {
-                await WriteElementWithAttributes("patternFill", new() { { "patternType", "none" } });
+                await WriteElementWithAttributes(writer, "patternFill", new() { { "patternType", "none" } });
             }
 
-            await using (CreateElementScope("fill"))
+            await using (CreateElementScope(writer, "fill"))
             {
-                await WriteElementWithAttributes("patternFill", new() { { "patternType", "gray125" } });
+                await WriteElementWithAttributes(writer, "patternFill", new() { { "patternType", "gray125" } });
             }
 
-            await using (CreateElementScope("fill"))
+            await using (CreateElementScope(writer, "fill"))
             {
-                await using (CreateElementScopeWithAttributes("patternFill", new() { { "patternType", "solid" } }))
+                await using (CreateElementScopeWithAttributes(writer, "patternFill", new() { { "patternType", "solid" } }))
                 {
-                    await WriteElementWithAttributes("fgColor", new() { { "rgb", "FFE6F0FA" } });
-                    await WriteElementWithAttributes("bgColor", new() { { "indexed", "64" } });
+                    await WriteElementWithAttributes(writer, "fgColor", new() { { "rgb", "FFE6F0FA" } });
+                    await WriteElementWithAttributes(writer, "bgColor", new() { { "indexed", "64" } });
                 }
             }
         }
     }
 
-    private async Task WriteBordersElementAsync()
+    private async Task WriteBordersElementAsync(XmlWriter writer)
     {
-        await using (CreateElementScopeWithAttributes("borders", new() { { "count", "1" } }))
+        await using (CreateElementScopeWithAttributes(writer, "borders", new() { { "count", "1" } }))
         {
-            await WriteBorderElementAsync();
+            await WriteBorderElementAsync(writer);
         }
     }
 
-    private async Task WriteBorderElementAsync()
+    private async Task WriteBorderElementAsync(XmlWriter writer)
     {
-        await using (CreateElementScope("border"))
+        await using (CreateElementScope(writer, "border"))
         {
-            await using (CreateElementScope("left"))
+            await using (CreateElementScope(writer, "left"))
             {
             }
 
-            await using (CreateElementScope("right"))
+            await using (CreateElementScope(writer, "right"))
             {
             }
 
-            await using (CreateElementScope("top"))
+            await using (CreateElementScope(writer, "top"))
             {
             }
 
-            await using (CreateElementScope("bottom"))
+            await using (CreateElementScope(writer, "bottom"))
             {
             }
 
-            await using (CreateElementScope("diagonal"))
+            await using (CreateElementScope(writer, "diagonal"))
             {
             }
         }
     }
 
-    private async Task WriteNumFmts()
+    private async Task WriteNumFmts(XmlWriter writer)
     {
         var numFmts = NumFmt.GetAll();
         var localeNumFmts = _styleRegistry.GetNumFmts();
-        await using (CreateElementScopeWithAttributes("numFmts", new() { { "count", $"{numFmts.Length + localeNumFmts.Length}" } }))
+        await using (CreateElementScopeWithAttributes(writer, "numFmts", new() { { "count", $"{numFmts.Length + localeNumFmts.Length}" } }))
         {
             foreach (var numFmt in numFmts)
             {
-                await WriteElementWithAttributes("numFmt", new() { { "numFmtId", numFmt.NumFmtId }, { "formatCode", numFmt.FormatCode } });
+                await WriteElementWithAttributes(writer, "numFmt", new() { { "numFmtId", numFmt.NumFmtId }, { "formatCode", numFmt.FormatCode } });
             }
 
             foreach (var (numFmtId, formatCode) in localeNumFmts)
             {
-                await WriteElementWithAttributes("numFmt", new() { { "numFmtId", numFmtId }, { "formatCode", formatCode } });
+                await WriteElementWithAttributes(writer, "numFmt", new() { { "numFmtId", numFmtId }, { "formatCode", formatCode } });
             }
         }
     }
 
-    private async Task WriteCellXfs()
+    private async Task WriteCellXfs(XmlWriter writer)
     {
         var localeEntries = _styleRegistry.GetCellXfs();
-        await using (CreateElementScopeWithAttributes("cellXfs", new() { { "count", $"{CellXfs.All.Count + localeEntries.Length}" } }))
+        await using (CreateElementScopeWithAttributes(writer, "cellXfs", new() { { "count", $"{CellXfs.All.Count + localeEntries.Length}" } }))
         {
             foreach (var cellXfs in CellXfs.All)
             {
-                await using (CreateElementScopeWithAttributes("xf", new() { { "xfId", "0" } }))
-                {
-                    if (!string.IsNullOrEmpty(cellXfs.FontId))
-                    {
-                        WriteAttributeString("fontId", cellXfs.FontId);
-                        WriteAttributeString("applyFont", "1");
-                    }
-
-                    if (!string.IsNullOrEmpty(cellXfs.FillId))
-                    {
-                        WriteAttributeString("fillId", cellXfs.FillId);
-                        WriteAttributeString("applyFill", "1");
-                    }
-
-                    if (!string.IsNullOrEmpty(cellXfs.NumFmtId))
-                    {
-                        WriteAttributeString("numFmtId", cellXfs.NumFmtId);
-                        WriteAttributeString("applyNumberFormat", "1");
-                    }
-
-                    // this needs to be last since it adds an inner element
-                    if (!string.IsNullOrEmpty(cellXfs.AlignmentHorizontal))
-                    {
-                        WriteAttributeString("applyAlignment", "1");
-
-                        await WriteElementWithAttributes("alignment", new() { { "horizontal", cellXfs.AlignmentHorizontal } });
-                    }
-                }
+                await WriteXfElementAsync(writer, cellXfs.FontId, cellXfs.FillId, cellXfs.NumFmtId, cellXfs.AlignmentHorizontal);
             }
 
             foreach (var entry in localeEntries)
             {
-                await using (CreateElementScopeWithAttributes("xf", new() { { "xfId", "0" } }))
-                {
-                    if (!string.IsNullOrEmpty(entry.FontId))
-                    {
-                        WriteAttributeString("fontId", entry.FontId);
-                        WriteAttributeString("applyFont", "1");
-                    }
-
-                    if (!string.IsNullOrEmpty(entry.FillId))
-                    {
-                        WriteAttributeString("fillId", entry.FillId);
-                        WriteAttributeString("applyFill", "1");
-                    }
-
-                    WriteAttributeString("numFmtId", entry.NumFmtId);
-                    WriteAttributeString("applyNumberFormat", "1");
-
-                    // this needs to be last since it adds an inner element
-                    if (!string.IsNullOrEmpty(entry.AlignmentHorizontal))
-                    {
-                        WriteAttributeString("applyAlignment", "1");
-
-                        await WriteElementWithAttributes("alignment", new() { { "horizontal", entry.AlignmentHorizontal } });
-                    }
-                }
+                await WriteXfElementAsync(writer, entry.FontId, entry.FillId, entry.NumFmtId, entry.AlignmentHorizontal);
             }
         }
     }
 
-    private async Task WriteCellStyles()
+    private async Task WriteXfElementAsync(XmlWriter writer, string? fontId, string? fillId, string? numFmtId, string? alignmentHorizontal)
     {
-        await using (CreateElementScopeWithAttributes("cellStyles", new() { { "count", "1" } }))
+        await using (CreateElementScopeWithAttributes(writer, "xf", new() { { "xfId", "0" } }))
         {
-            await WriteElementWithAttributes("cellStyle", new() { { "name", "Normal" }, { "xfId", "0" }, { "builtinId", "0" } });
+            if (!string.IsNullOrEmpty(fontId))
+            {
+                WriteAttributeString(writer, "fontId", fontId);
+                WriteAttributeString(writer, "applyFont", "1");
+            }
+
+            if (!string.IsNullOrEmpty(fillId))
+            {
+                WriteAttributeString(writer, "fillId", fillId);
+                WriteAttributeString(writer, "applyFill", "1");
+            }
+
+            if (!string.IsNullOrEmpty(numFmtId))
+            {
+                WriteAttributeString(writer, "numFmtId", numFmtId);
+                WriteAttributeString(writer, "applyNumberFormat", "1");
+            }
+
+            // this needs to be last since it adds an inner element
+            if (!string.IsNullOrEmpty(alignmentHorizontal))
+            {
+                WriteAttributeString(writer, "applyAlignment", "1");
+
+                await WriteElementWithAttributes(writer, "alignment", new() { { "horizontal", alignmentHorizontal } });
+            }
+        }
+    }
+
+    private async Task WriteCellStyles(XmlWriter writer)
+    {
+        await using (CreateElementScopeWithAttributes(writer, "cellStyles", new() { { "count", "1" } }))
+        {
+            await WriteElementWithAttributes(writer, "cellStyle", new() { { "name", "Normal" }, { "xfId", "0" }, { "builtinId", "0" } });
         }
     }
 

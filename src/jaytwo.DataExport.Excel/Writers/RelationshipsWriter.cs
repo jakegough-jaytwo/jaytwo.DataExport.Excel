@@ -7,21 +7,16 @@ namespace jaytwo.DataExport.Excel.Writers;
 
 internal abstract class RelationshipsWriter : XmlDocumentWriter
 {
-    public RelationshipsWriter(XmlWriter writer)
-        : base(writer)
+    protected override async Task WriteRootElementAsync(XmlWriter writer, CancellationToken cancellationToken)
     {
-    }
-
-    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
-    {
-        await using (CreateElementScope("Relationships", "http://schemas.openxmlformats.org/package/2006/relationships"))
+        await using (CreateElementScope(writer, "Relationships", "http://schemas.openxmlformats.org/package/2006/relationships"))
         {
-            await WriteRelationshipElementsAsync();
+            await WriteRelationshipElementsAsync(writer);
         }
     }
 
-    protected abstract Task WriteRelationshipElementsAsync();
+    protected abstract Task WriteRelationshipElementsAsync(XmlWriter writer);
 
-    protected async Task WriteRelationshipElementAsync(string id, string type, string target)
-        => await WriteElementWithAttributes("Relationship", new() { { "Id", id }, { "Type", type }, { "Target", target } });
+    protected async Task WriteRelationshipElementAsync(XmlWriter writer, string id, string type, string target)
+        => await WriteElementWithAttributes(writer, "Relationship", new() { { "Id", id }, { "Type", type }, { "Target", target } });
 }

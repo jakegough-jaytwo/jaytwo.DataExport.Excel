@@ -1,24 +1,26 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.DataExport.Excel.OpenXml;
 
 namespace jaytwo.DataExport.Excel.Writers;
 
 internal class WorkbookRelationshipsWriter : RelationshipsWriter
 {
-    public WorkbookRelationshipsWriter(WorkbookRelationshipsWriterContext context, XmlWriter writer)
-        : base(writer)
+    private readonly IList<RelationshipSpec> _relationships;
+
+    public WorkbookRelationshipsWriter(IList<RelationshipSpec> relationships)
     {
-        Context = context;
+        _relationships = relationships;
     }
 
-    public WorkbookRelationshipsWriterContext Context { get; set; }
+    public override string ZipPackagePath => "xl/_rels/workbook.xml.rels";
 
-    protected override async Task WriteRelationshipElementsAsync()
+    protected override async Task WriteRelationshipElementsAsync(XmlWriter writer)
     {
-        foreach (var relationship in Context.Relationships)
+        foreach (var relationship in _relationships)
         {
-            await WriteRelationshipElementAsync(id: relationship.Id, type: relationship.Type, target: relationship.Target);
+            await WriteRelationshipElementAsync(writer, id: relationship.Id, type: relationship.Type, target: relationship.Target);
         }
     }
 }

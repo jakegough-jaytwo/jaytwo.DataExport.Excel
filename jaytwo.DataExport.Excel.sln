@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B1C9BB90-717
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{B632F4F6-EDC1-45FB-ADAC-96601E69F854}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jaytwo.DataExport.Abstractions", "src\jaytwo.DataExport.Abstractions\jaytwo.DataExport.Abstractions.csproj", "{53081958-CA8A-4276-8617-B097FB0888E8}"
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jaytwo.DataExport.Excel", "src\jaytwo.DataExport.Excel\jaytwo.DataExport.Excel.csproj", "{AFFA1B21-4C2F-49EC-8D4F-7A4DC98B19F3}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jaytwo.DataExport.Excel.Tests", "test\jaytwo.DataExport.Excel.Tests\jaytwo.DataExport.Excel.Tests.csproj", "{8AE30F35-D341-42BC-A42C-DC9D39F7F707}"
@@ -17,6 +19,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{53081958-CA8A-4276-8617-B097FB0888E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53081958-CA8A-4276-8617-B097FB0888E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53081958-CA8A-4276-8617-B097FB0888E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53081958-CA8A-4276-8617-B097FB0888E8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{AFFA1B21-4C2F-49EC-8D4F-7A4DC98B19F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{AFFA1B21-4C2F-49EC-8D4F-7A4DC98B19F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AFFA1B21-4C2F-49EC-8D4F-7A4DC98B19F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -30,6 +36,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{53081958-CA8A-4276-8617-B097FB0888E8} = {B1C9BB90-7175-477D-85AA-C4E9B1246868}
 		{AFFA1B21-4C2F-49EC-8D4F-7A4DC98B19F3} = {B1C9BB90-7175-477D-85AA-C4E9B1246868}
 		{8AE30F35-D341-42BC-A42C-DC9D39F7F707} = {B632F4F6-EDC1-45FB-ADAC-96601E69F854}
 	EndGlobalSection

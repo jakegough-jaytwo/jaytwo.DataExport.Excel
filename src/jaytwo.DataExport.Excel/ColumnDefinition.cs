@@ -3,6 +3,9 @@ using jaytwo.DataExport.Excel.Styles;
 
 namespace jaytwo.DataExport.Excel;
 
+/// <summary>
+/// Defines per-column formatting options such as width, number format, alignment, and locale-aware format codes.
+/// </summary>
 public class ColumnDefinition
 {
     /// <summary>

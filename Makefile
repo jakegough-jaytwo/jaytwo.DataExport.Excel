@@ -51,11 +51,11 @@ unit-test:
 				--logger "trx;LogFileName=$$(basename $$dir).trx"; \
 	done
 	reportgenerator \
-		"-reports:${BUILD_TEST_COVERAGE_DIR}/**/coverage.cobertura.xml" \
+		"-reports:${BUILD_TEST_COVERAGE_DIR}/**/*.cobertura.xml" \
 		"-targetdir:${BUILD_TEST_COVERAGE_DIR}/" \
 		"-reportTypes:Cobertura"
 	reportgenerator \
-		"-reports:${BUILD_TEST_COVERAGE_DIR}/**/coverage.cobertura.xml" \
+		"-reports:${BUILD_TEST_COVERAGE_DIR}/**/*.cobertura.xml" \
 		"-targetdir:${BUILD_TEST_COVERAGE_DIR}/html" \
 		"-reportTypes:Html"
 

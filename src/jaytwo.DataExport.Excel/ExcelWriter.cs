@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
+using System.Data.Common;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using jaytwo.DataExport.Abstractions;
 using jaytwo.DataExport.Excel.OpenXml;
 using jaytwo.DataExport.Excel.Writers;
+using jaytwo.DataExport.Excel.Writers.Xml;
 using jaytwo.DataExport.Excel.Zip;
 
 namespace jaytwo.DataExport.Excel;
@@ -53,7 +54,51 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
     public WorkbookMetadata WorkbookMetadata { get; }
 
     /// <summary>
-    /// Exports a single worksheet from an <see cref="IDataReader"/> to a new XLSX file.
+    /// Exports a single worksheet from an <see cref="ITabularDataReader"/> to a new XLSX file.
+    /// </summary>
+    /// <param name="fileName">The path of the XLSX file to create.</param>
+    /// <param name="data">The tabular data reader to write.</param>
+    /// <param name="sheetName">The worksheet name to use in the workbook.</param>
+    /// <param name="sheetOptions">Optional worksheet formatting and layout options.</param>
+    /// <param name="metadata">Optional workbook metadata written into the package.</param>
+    /// <param name="cancellationToken">A token used to cancel the export.</param>
+    public static async Task ExportAsync(
+        string fileName,
+        ITabularDataReader data,
+        string sheetName = DefaultSheetName,
+        WorksheetOptions? sheetOptions = null,
+        WorkbookMetadata? metadata = default,
+        CancellationToken cancellationToken = default)
+    {
+        await using var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
+        await ExportAsync(fileStream, data, sheetName, sheetOptions, metadata, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Exports a single worksheet from an <see cref="ITabularDataReader"/> to an XLSX stream.
+    /// </summary>
+    /// <param name="outputStream">The destination stream that will receive the XLSX content.</param>
+    /// <param name="data">The tabular data reader to write.</param>
+    /// <param name="sheetName">The worksheet name to use in the workbook.</param>
+    /// <param name="sheetOptions">Optional worksheet formatting and layout options.</param>
+    /// <param name="metadata">Optional workbook metadata written into the package.</param>
+    /// <param name="leaveOpen"><see langword="true"/> to leave <paramref name="outputStream"/> open after export; otherwise, <see langword="false"/>.</param>
+    /// <param name="cancellationToken">A token used to cancel the export.</param>
+    public static async Task ExportAsync(
+        Stream outputStream,
+        ITabularDataReader data,
+        string sheetName = DefaultSheetName,
+        WorksheetOptions? sheetOptions = null,
+        WorkbookMetadata? metadata = default,
+        bool leaveOpen = true,
+        CancellationToken cancellationToken = default)
+    {
+        await using var writer = new ExcelWriter(outputStream, metadata, leaveOpen);
+        await writer.WriteSheetAsync(data, sheetName, sheetOptions, cancellationToken);
+    }
+
+    /// <summary>
+    /// Exports a single worksheet from a <see cref="DbDataReader"/> to a new XLSX file.
     /// </summary>
     /// <param name="fileName">The path of the XLSX file to create.</param>
     /// <param name="data">The tabular data to write.</param>
@@ -63,18 +108,20 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">A token used to cancel the export.</param>
     public static async Task ExportAsync(
         string fileName,
-        IDataReader data,
+        DbDataReader data,
         string sheetName = DefaultSheetName,
         WorksheetOptions? sheetOptions = null,
         WorkbookMetadata? metadata = default,
         CancellationToken cancellationToken = default)
     {
-        using var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
-        await ExportAsync(fileStream, data, sheetName, sheetOptions, metadata, cancellationToken: cancellationToken);
+        await using var tabularDataReader = new DataReaderTabularDataReader(data);
+        await using var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
+        await using var writer = new ExcelWriter(fileStream, metadata);
+        await writer.WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
     }
 
     /// <summary>
-    /// Exports a single worksheet from an <see cref="IDataReader"/> to an XLSX stream.
+    /// Exports a single worksheet from a <see cref="DbDataReader"/> to an XLSX stream.
     /// </summary>
     /// <param name="outputStream">The destination stream that will receive the XLSX content.</param>
     /// <param name="data">The tabular data to write.</param>
@@ -85,15 +132,16 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
     /// <param name="cancellationToken">A token used to cancel the export.</param>
     public static async Task ExportAsync(
         Stream outputStream,
-        IDataReader data,
+        DbDataReader data,
         string sheetName = DefaultSheetName,
         WorksheetOptions? sheetOptions = null,
         WorkbookMetadata? metadata = default,
         bool leaveOpen = true,
         CancellationToken cancellationToken = default)
     {
-        using var writer = new ExcelWriter(outputStream, metadata, leaveOpen);
-        await writer.WriteSheetAsync(data, sheetName, sheetOptions, cancellationToken);
+        await using var tabularDataReader = new DataReaderTabularDataReader(data);
+        await using var writer = new ExcelWriter(outputStream, metadata, leaveOpen);
+        await writer.WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
     }
 
     /// <summary>
@@ -114,8 +162,10 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
         WorkbookMetadata? metadata = default,
         CancellationToken cancellationToken = default)
     {
-        using var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
-        await ExportAsync(fileStream, data, sheetName, sheetOptions, metadata, cancellationToken: cancellationToken);
+        await using var tabularDataReader = new ObjectTabularDataReader<T>(data);
+        await using var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
+        await using var writer = new ExcelWriter(fileStream, metadata);
+        await writer.WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
     }
 
     /// <summary>
@@ -136,8 +186,10 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
         WorkbookMetadata? metadata = default,
         CancellationToken cancellationToken = default)
     {
-        using var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
-        await ExportAsync(fileStream, data, sheetName, sheetOptions, metadata, cancellationToken: cancellationToken);
+        await using var tabularDataReader = new ObjectTabularDataReader<T>(data, cancellationToken);
+        await using var fileStream = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
+        await using var writer = new ExcelWriter(fileStream, metadata);
+        await writer.WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
     }
 
     /// <summary>
@@ -160,8 +212,9 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
         bool leaveOpen = true,
         CancellationToken cancellationToken = default)
     {
-        using var writer = new ExcelWriter(outputStream, metadata, leaveOpen);
-        await writer.WriteSheetAsync(data, sheetName, sheetOptions, cancellationToken);
+        await using var tabularDataReader = new ObjectTabularDataReader<T>(data);
+        await using var writer = new ExcelWriter(outputStream, metadata, leaveOpen);
+        await writer.WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
     }
 
     /// <summary>
@@ -184,28 +237,40 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
         bool leaveOpen = true,
         CancellationToken cancellationToken = default)
     {
-        using var writer = new ExcelWriter(outputStream, metadata, leaveOpen);
-        await writer.WriteSheetAsync(data, sheetName, sheetOptions, cancellationToken);
+        await using var tabularDataReader = new ObjectTabularDataReader<T>(data, cancellationToken);
+        await using var writer = new ExcelWriter(outputStream, metadata, leaveOpen);
+        await writer.WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
     }
 
     /// <summary>
-    /// Writes a worksheet from an <see cref="IDataReader"/> into the current workbook.
+    /// Writes a worksheet from an <see cref="ITabularDataReader"/> into the current workbook.
+    /// </summary>
+    /// <param name="data">The tabular data reader to write.</param>
+    /// <param name="sheetName">The worksheet name to use in the workbook.</param>
+    /// <param name="sheetOptions">Optional worksheet formatting and layout options.</param>
+    /// <param name="cancellationToken">A token used to cancel the write operation.</param>
+    public async Task WriteSheetAsync(
+        ITabularDataReader data,
+        string sheetName = DefaultSheetName,
+        WorksheetOptions? sheetOptions = null,
+        CancellationToken cancellationToken = default)
+        => await WriteSheetCoreAsync(data, sheetName, sheetOptions, cancellationToken);
+
+    /// <summary>
+    /// Writes a worksheet from a <see cref="DbDataReader"/> into the current workbook.
     /// </summary>
     /// <param name="data">The tabular data to write.</param>
     /// <param name="sheetName">The worksheet name to use in the workbook.</param>
     /// <param name="sheetOptions">Optional worksheet formatting and layout options.</param>
     /// <param name="cancellationToken">A token used to cancel the write operation.</param>
     public async Task WriteSheetAsync(
-        IDataReader data,
+        DbDataReader data,
         string sheetName = DefaultSheetName,
         WorksheetOptions? sheetOptions = null,
         CancellationToken cancellationToken = default)
     {
-        await WriteStartAsync(cancellationToken);
-
-        sheetOptions ??= new WorksheetOptions();
-        var sheetSpec = _sheetsIndex.Add(sheetName);
-        await WriteAsync(new WorksheetWriterDataReaderContext(sheetSpec.SheetTag, sheetSpec.WorksheetUid, sheetOptions, data, _styleRegistry), cancellationToken);
+        await using var tabularDataReader = new DataReaderTabularDataReader(data);
+        await WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
     }
 
     /// <summary>
@@ -221,7 +286,10 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
         string sheetName = DefaultSheetName,
         WorksheetOptions? sheetOptions = null,
         CancellationToken cancellationToken = default)
-        => await WriteSheetAsync(ToAsyncEnumerable(data, cancellationToken), sheetName, sheetOptions, cancellationToken);
+    {
+        await using var tabularDataReader = new ObjectTabularDataReader<T>(data, cancellationToken);
+        await WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
+    }
 
     /// <summary>
     /// Writes a worksheet from an asynchronous sequence into the current workbook.
@@ -237,11 +305,8 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
         WorksheetOptions? sheetOptions = null,
         CancellationToken cancellationToken = default)
     {
-        await WriteStartAsync(cancellationToken);
-
-        sheetOptions ??= new WorksheetOptions();
-        var sheetSpec = _sheetsIndex.Add(sheetName);
-        await WriteAsync(new WorksheetWriterContext<T>(sheetSpec.SheetTag, sheetSpec.WorksheetUid, sheetOptions, data, _styleRegistry), cancellationToken);
+        await using var tabularDataReader = new ObjectTabularDataReader<T>(data);
+        await WriteSheetAsync(tabularDataReader, sheetName, sheetOptions, cancellationToken);
     }
 
     /// <summary>
@@ -251,7 +316,7 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
     public async Task WriteStyleSheetAsync(CancellationToken cancellationToken = default)
     {
         _relationships.AddStyleSheet();
-        await WriteAsync(new StylesWriterContext(_styleRegistry), cancellationToken);
+        await WriteAsync(new StylesWriter(_styleRegistry), cancellationToken);
     }
 
     /// <summary>
@@ -281,23 +346,25 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
         _zip.Dispose();
     }
 
-    private static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(IEnumerable<T> source, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    private async Task WriteSheetCoreAsync(
+        ITabularDataReader data,
+        string sheetName,
+        WorksheetOptions? sheetOptions,
+        CancellationToken cancellationToken)
     {
-        foreach (var item in source)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
+        await WriteStartAsync(cancellationToken);
 
-            yield return item;
-            await Task.Yield(); // ensures it's really async
-        }
+        sheetOptions ??= new WorksheetOptions();
+        var sheetSpec = _sheetsIndex.Add(sheetName);
+        await WriteAsync(new WorksheetWriter(sheetSpec.SheetTag, sheetSpec.WorksheetUid, sheetOptions, data, _styleRegistry), cancellationToken);
     }
 
     private async Task WriteStartAsync(CancellationToken cancellationToken)
     {
         if (!_initialized)
         {
-            await WriteAsync(new DotRelsWriterContext(), cancellationToken);
-            await WriteAsync(BuildCorePropertiesWriterContext(), cancellationToken);
+            await WriteAsync(new DotRelsWriter(), cancellationToken);
+            await WriteAsync(BuildCorePropertiesWriter(), cancellationToken);
             _initialized = true;
         }
     }
@@ -305,14 +372,14 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
     private async ValueTask WriteFinishAsync(CancellationToken cancellationToken = default)
     {
         await WriteStyleSheetAsync(cancellationToken);
-        await WriteAsync(new WorkbookRelationshipsWriterContext(_relationships.Relationships), cancellationToken);
-        await WriteAsync(new WorkbookWriterContext(_sheetsIndex.Sheets), cancellationToken);
-        await WriteAsync(new ContentTypesWriterContext(_sheetsIndex.SheetTags, _relationships.HasStyleSheet), cancellationToken);
-        await WriteAsync(BuildAppPropertiesWriterContext(), cancellationToken); // needs to be after sheets are written
+        await WriteAsync(new WorkbookRelationshipsWriter(_relationships.Relationships), cancellationToken);
+        await WriteAsync(new WorkbookWriter(_sheetsIndex.Sheets), cancellationToken);
+        await WriteAsync(new ContentTypesWriter(_sheetsIndex.SheetTags, _relationships.HasStyleSheet), cancellationToken);
+        await WriteAsync(BuildAppPropertiesWriter(), cancellationToken); // needs to be after sheets are written
         await OutputStream.FlushAsync(cancellationToken);
     }
 
-    private async Task WriteAsync(IWriterContext context, CancellationToken cancellationToken)
+    private async Task WriteAsync(XmlDocumentWriter writer, CancellationToken cancellationToken)
     {
         var settings = new XmlWriterSettings
         {
@@ -323,21 +390,21 @@ public class ExcelWriter : IDisposable, IAsyncDisposable
             CloseOutput = false,
         };
 
-        await using (var entryStream = _zip.OpenEntryStream(context.ZipPackagePath))
-        using (var writer = XmlWriter.Create(entryStream, settings))
+        await using (var entryStream = _zip.OpenEntryStream(writer.ZipPackagePath))
+        using (var xmlWriter = XmlWriter.Create(entryStream, settings))
         {
-            await context.WriteAsync(writer, cancellationToken);
+            await writer.WriteAsync(xmlWriter, cancellationToken);
         }
     }
 
-    private ExtendedPropertiesWriterContext BuildAppPropertiesWriterContext()
+    private ExtendedPropertiesWriter BuildAppPropertiesWriter()
         => new(
             application: WorkbookMetadata.ApplicationName,
             appVersion: WorkbookMetadata.ApplicationVersion,
             company: WorkbookMetadata.CompanyName,
             sheetNames: _sheetsIndex.SheetNames);
 
-    private CorePropertiesWriterContext BuildCorePropertiesWriterContext()
+    private CorePropertiesWriter BuildCorePropertiesWriter()
         => new(
             creator: WorkbookMetadata.Creator,
             lastModifiedBy: WorkbookMetadata.LastModifiedBy ?? WorkbookMetadata.Creator,

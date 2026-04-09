@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using jaytwo.DataExport.Abstractions;
 using jaytwo.DataExport.Excel.Styles;
 using jaytwo.DataExport.Excel.Tests.Models;
 using jaytwo.DisappearingFiles;
@@ -271,6 +272,46 @@ public class ExcelWriterTests
     }
 
     [Fact]
+    public async Task WriteData_FromTabularDataReader_WritesExpectedRows()
+    {
+        // Arrange
+        var people = new List<Person>
+        {
+            new Person { Name = "Alice", Age = 30 },
+            new Person { Name = "Bob", Age = 25 },
+        };
+
+        using var memoryStream = new MemoryStream();
+        using (var exporter = new ExcelWriter(memoryStream))
+        {
+            await exporter.WriteSheetAsync(new ObjectTabularDataReader<Person>(people));
+        }
+
+        memoryStream.Position = 0;
+
+        // Assert
+        using var doc = SpreadsheetDocument.Open(memoryStream, isEditable: false);
+        var sheet = doc.WorkbookPart!.Workbook.Sheets!.Elements<Sheet>().First();
+        var worksheetPart = (WorksheetPart)doc.WorkbookPart.GetPartById(sheet.Id!);
+        var sheetData = worksheetPart.Worksheet.Elements<SheetData>().First();
+
+        var rows = sheetData.Elements<Row>().ToList();
+        Assert.Equal(3, rows.Count);
+
+        var headerCells = rows[0].Elements<Cell>().ToList();
+        Assert.Equal("Name", GetCellValue(doc, headerCells[0]));
+        Assert.Equal("Age", GetCellValue(doc, headerCells[1]));
+
+        var row1 = rows[1].Elements<Cell>().ToList();
+        Assert.Equal("Alice", GetCellValue(doc, row1[0]));
+        Assert.Equal("30", GetCellValue(doc, row1[1]));
+
+        var row2 = rows[2].Elements<Cell>().ToList();
+        Assert.Equal("Bob", GetCellValue(doc, row2[0]));
+        Assert.Equal("25", GetCellValue(doc, row2[1]));
+    }
+
+    [Fact]
     public async Task WriteMultipleFrozenSheets_DoesNotMarkEverySheetAsSelected()
     {
         // Arrange
@@ -442,6 +483,7 @@ public class ExcelWriterTests
         WriteFileSize(fileStream.Length);
     }
 
+#if NET6_0_OR_GREATER
     [SkippableTheory]
     [InlineData(10, 1)]
     [InlineData(10, 2)]
@@ -481,6 +523,7 @@ public class ExcelWriterTests
         WriteMemoryUsage();
         WriteFileSize(new FileInfo(outputFileName).Length);
     }
+#endif
 
     private static string GetCellValue(SpreadsheetDocument document, Cell cell)
     {

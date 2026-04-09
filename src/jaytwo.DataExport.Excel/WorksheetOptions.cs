@@ -4,6 +4,9 @@ using System.Text;
 
 namespace jaytwo.DataExport.Excel;
 
+/// <summary>
+/// Controls per-sheet formatting and layout options such as header display, zebra striping, frozen rows, and per-column settings.
+/// </summary>
 public class WorksheetOptions
 {
     private Dictionary<string, ColumnDefinition> _columnDefinitions = new(StringComparer.OrdinalIgnoreCase);

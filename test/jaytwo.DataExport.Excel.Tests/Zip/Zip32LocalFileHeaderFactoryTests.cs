@@ -66,7 +66,8 @@ public class Zip32LocalFileHeaderFactoryTests
         Assert.Equal((ushort)0, typed.Crc32);
         Assert.Equal((ushort)0, typed.CompressedSize);
         Assert.Equal((ushort)0, typed.UncompressedSize);
-        Assert.Empty(typed.ExtraField);
+        Assert.NotNull(typed.ExtraField);
+        Assert.Empty(typed.ExtraField!);
         Assert.Equal((ushort)0, typed.ExtraFieldLength);
     }
 }

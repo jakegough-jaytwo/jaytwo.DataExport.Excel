@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,90 +7,85 @@ namespace jaytwo.DataExport.Excel.Writers.Xml;
 
 internal abstract class XmlDocumentWriter
 {
-    public XmlDocumentWriter(XmlWriter writer)
-    {
-        Writer = writer;
-    }
+    public abstract string ZipPackagePath { get; }
 
-    protected XmlWriter Writer { get; }
-
-    public async Task WriteAsync(CancellationToken cancellationToken)
+    public virtual async Task WriteAsync(XmlWriter writer, CancellationToken cancellationToken)
     {
         await Task.Yield();
         cancellationToken.ThrowIfCancellationRequested();
 
-        await using (await CreateDocumentElementScope())
+        await using (await CreateDocumentElementScope(writer))
         {
-            await WriteRootElementAsync(cancellationToken);
+            await WriteRootElementAsync(writer, cancellationToken);
         }
 
         await Task.Yield();
         cancellationToken.ThrowIfCancellationRequested();
 
-        await Writer.FlushAsync();
+        await writer.FlushAsync();
     }
 
-    protected virtual async Task<XmlDocumentScope> CreateDocumentElementScope()
-        => await CreateDocumentScopeAsync(standalone: true);
+    protected virtual async Task<XmlDocumentScope> CreateDocumentElementScope(XmlWriter writer)
+        => await CreateDocumentScopeAsync(writer, standalone: true);
 
-    protected abstract Task WriteRootElementAsync(CancellationToken cancellationToken);
+    protected abstract Task WriteRootElementAsync(XmlWriter writer, CancellationToken cancellationToken);
 
-    protected async Task WriteElementWithAttributes(string elementName, Dictionary<string, string> attributes)
+    protected async Task WriteElementWithAttributes(XmlWriter writer, string elementName, Dictionary<string, string> attributes)
     {
-        await using (CreateElementScope(elementName))
+        await using (CreateElementScope(writer, elementName))
         {
             foreach (var attribute in attributes)
             {
-                WriteAttributeString(attribute.Key, attribute.Value);
+                WriteAttributeString(writer, attribute.Key, attribute.Value);
             }
         }
     }
 
-    protected async Task<XmlDocumentScope> CreateDocumentScopeAsync(bool standalone)
-        => await XmlDocumentScope.CreateAsync(Writer, standalone);
+    protected async Task<XmlDocumentScope> CreateDocumentScopeAsync(XmlWriter writer, bool standalone)
+        => await XmlDocumentScope.CreateAsync(writer, standalone);
 
-    protected XmlElementScope CreateElementScope(string elementName)
-        => XmlElementScope.Create(Writer, elementName);
+    protected XmlElementScope CreateElementScope(XmlWriter writer, string elementName)
+        => XmlElementScope.Create(writer, elementName);
 
-    protected XmlElementScope CreateElementScopeWithAttributes(string elementName, Dictionary<string, string> attributes)
+    protected XmlElementScope CreateElementScopeWithAttributes(XmlWriter writer, string elementName, Dictionary<string, string> attributes)
     {
-        var scope = CreateElementScope(elementName);
+        var scope = CreateElementScope(writer, elementName);
 
         foreach (var attribute in attributes)
         {
-            WriteAttributeString(attribute.Key, attribute.Value);
+            WriteAttributeString(writer, attribute.Key, attribute.Value);
         }
 
         return scope;
     }
 
-    protected XmlElementScope CreateElementScope(string elementName, string ns)
-        => XmlElementScope.Create(Writer, elementName, ns);
+    protected XmlElementScope CreateElementScope(XmlWriter writer, string elementName, string ns)
+        => XmlElementScope.Create(writer, elementName, ns);
 
-    protected XmlElementScope CreateElementScope(string prefix, string elementName, string ns)
-        => XmlElementScope.Create(Writer, prefix, elementName, ns);
+    protected XmlElementScope CreateElementScope(XmlWriter writer, string prefix, string elementName, string ns)
+        => XmlElementScope.Create(writer, prefix, elementName, ns);
 
-    protected void WriteAttributeString(string localName, string value)
-        => Writer.WriteAttributeString(localName, value);
+    protected void WriteAttributeString(XmlWriter writer, string localName, string value)
+        => writer.WriteAttributeString(localName, value);
 
-    protected void WriteAttributeString(string localName, string ns, string value)
-        => Writer.WriteAttributeString(localName, ns, value);
+    protected void WriteAttributeString(XmlWriter writer, string localName, string ns, string value)
+        => writer.WriteAttributeString(localName, ns, value);
 
-    protected void WriteAttributeString(string prefix, string localName, string? ns, string value)
-        => Writer.WriteAttributeString(prefix, localName, ns, value);
+    protected void WriteAttributeString(XmlWriter writer, string prefix, string localName, string? ns, string value)
+        => writer.WriteAttributeString(prefix, localName, ns, value);
 
-    protected void WriteElementString(string localName, string? value)
-        => Writer.WriteElementString(localName, value);
+    protected void WriteElementString(XmlWriter writer, string localName, string? value)
+        => writer.WriteElementString(localName, value);
 
-    protected void WriteElementString(string localName, string? ns, string? value)
-        => Writer.WriteElementString(localName, ns, value);
+    protected void WriteElementString(XmlWriter writer, string localName, string? ns, string? value)
+        => writer.WriteElementString(localName, ns, value);
 
-    protected void WriteElementString(string? prefix, string localName, string? ns, string? value)
-        => Writer.WriteElementString(prefix, localName, ns, value);
+    protected void WriteElementString(XmlWriter writer, string? prefix, string localName, string? ns, string? value)
+        => writer.WriteElementString(prefix, localName, ns, value);
 
-    protected async Task WriteElementStringAsync(string? prefix, string localName, string? ns, string value)
-        => await Writer.WriteElementStringAsync(prefix, localName, ns, value);
+    protected async Task WriteElementStringAsync(XmlWriter writer, string? prefix, string localName, string? ns, string value)
+        => await writer.WriteElementStringAsync(prefix, localName, ns, value);
 
-    protected async Task WriteStringAsync(string? text)
-        => await Writer.WriteStringAsync(text);
+    protected async Task WriteStringAsync(XmlWriter writer, string? text)
+        => await writer.WriteStringAsync(text);
 }

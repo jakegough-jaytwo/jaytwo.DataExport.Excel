@@ -9,7 +9,6 @@ namespace jaytwo.DataExport.Excel.Writers;
 internal class CorePropertiesWriter : XmlDocumentWriter
 {
     public CorePropertiesWriter(
-        XmlWriter writer,
         string? creator,
         DateTime? createdUtc = default,
         string? lastModifiedBy = default,
@@ -19,7 +18,6 @@ internal class CorePropertiesWriter : XmlDocumentWriter
         string? description = default,
         string? keywords = default,
         string? category = default)
-        : base(writer)
     {
         DateTime createdAtOrDefault = createdUtc ?? DateTime.UtcNow;
 
@@ -33,6 +31,8 @@ internal class CorePropertiesWriter : XmlDocumentWriter
         Keywords = keywords;
         Category = category;
     }
+
+    public override string ZipPackagePath => "docProps/core.xml";
 
     public string? Creator { get; }
 
@@ -52,61 +52,61 @@ internal class CorePropertiesWriter : XmlDocumentWriter
 
     public string? Category { get; }
 
-    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
+    protected override async Task WriteRootElementAsync(XmlWriter writer, CancellationToken cancellationToken)
     {
-        await using (CreateElementScope("cp", "coreProperties", Namespaces.cp))
+        await using (CreateElementScope(writer, "cp", "coreProperties", Namespaces.cp))
         {
-            WriteAttributeString("xmlns", "dc", null, Namespaces.dc);
-            WriteAttributeString("xmlns", "dcterms", null, Namespaces.dcterms);
-            WriteAttributeString("xmlns", "dcmitype", null, "http://purl.org/dc/dcmitype/");
-            WriteAttributeString("xmlns", "xsi", null, Namespaces.xsi);
+            WriteAttributeString(writer, "xmlns", "dc", null, Namespaces.dc);
+            WriteAttributeString(writer, "xmlns", "dcterms", null, Namespaces.dcterms);
+            WriteAttributeString(writer, "xmlns", "dcmitype", null, "http://purl.org/dc/dcmitype/");
+            WriteAttributeString(writer, "xmlns", "xsi", null, Namespaces.xsi);
 
             if (!string.IsNullOrEmpty(Title))
             {
-                await WriteElementStringAsync("dc", "title", Namespaces.dc, Title);
+                await WriteElementStringAsync(writer, "dc", "title", Namespaces.dc, Title);
             }
 
             if (!string.IsNullOrEmpty(Subject))
             {
-                await WriteElementStringAsync("dc", "subject", Namespaces.dc, Subject);
+                await WriteElementStringAsync(writer, "dc", "subject", Namespaces.dc, Subject);
             }
 
             if (!string.IsNullOrEmpty(Description))
             {
-                await WriteElementStringAsync("dc", "description", Namespaces.dc, Description);
+                await WriteElementStringAsync(writer, "dc", "description", Namespaces.dc, Description);
             }
 
             if (!string.IsNullOrEmpty(Creator))
             {
-                await WriteElementStringAsync("dc", "creator", Namespaces.dc, Creator);
+                await WriteElementStringAsync(writer, "dc", "creator", Namespaces.dc, Creator);
             }
 
             if (!string.IsNullOrEmpty(Keywords))
             {
-                await WriteElementStringAsync("cp", "keywords", Namespaces.cp, Keywords);
+                await WriteElementStringAsync(writer, "cp", "keywords", Namespaces.cp, Keywords);
             }
 
             if (!string.IsNullOrEmpty(Category))
             {
-                await WriteElementStringAsync("cp", "category", Namespaces.cp, Category);
+                await WriteElementStringAsync(writer, "cp", "category", Namespaces.cp, Category);
             }
 
             if (!string.IsNullOrEmpty(LastModifiedBy))
             {
-                await WriteElementStringAsync("cp", "lastModifiedBy", Namespaces.cp, LastModifiedBy);
+                await WriteElementStringAsync(writer, "cp", "lastModifiedBy", Namespaces.cp, LastModifiedBy);
             }
 
-            await WriteDateAsync("created", CreatedUtc);
-            await WriteDateAsync("modified", ModifiedUtc);
+            await WriteDateAsync(writer, "created", CreatedUtc);
+            await WriteDateAsync(writer, "modified", ModifiedUtc);
         }
     }
 
-    private async Task WriteDateAsync(string element, DateTime value)
+    private async Task WriteDateAsync(XmlWriter writer, string element, DateTime value)
     {
-        await using (CreateElementScope("dcterms", element, Namespaces.dcterms))
+        await using (CreateElementScope(writer, "dcterms", element, Namespaces.dcterms))
         {
-            WriteAttributeString("xsi", "type", Namespaces.xsi, "dcterms:W3CDTF");
-            await WriteStringAsync(value.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+            WriteAttributeString(writer, "xsi", "type", Namespaces.xsi, "dcterms:W3CDTF");
+            await WriteStringAsync(writer, value.ToString("yyyy-MM-ddTHH:mm:ssZ"));
         }
     }
 

@@ -224,7 +224,8 @@ public class Zip32CentralDirectoryEntryFactoryTests
         Assert.Equal((ushort)0, typed.DiskNumberStart);
         Assert.Equal((ushort)0, typed.InternalFileAttributes);
         Assert.Equal(0u, typed.ExternalFileAttributes);
-        Assert.Empty(typed.ExtraField);
+        Assert.NotNull(typed.ExtraField);
+        Assert.Empty(typed.ExtraField!);
         Assert.Equal((ushort)0, typed.ExtraFieldLength);
     }
 }

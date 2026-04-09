@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
@@ -7,62 +8,69 @@ namespace jaytwo.DataExport.Excel.Writers;
 
 internal class ExtendedPropertiesWriter : XmlDocumentWriter
 {
-    public ExtendedPropertiesWriter(ExtendedPropertiesWriterContext context, XmlWriter writer)
-        : base(writer)
+    private readonly string _application;
+    private readonly string _appVersion;
+    private readonly string? _company;
+    private readonly IList<string> _sheetNames;
+
+    public ExtendedPropertiesWriter(string application, string appVersion, string? company, IList<string> sheetNames)
     {
-        Context = context;
+        _application = application;
+        _appVersion = appVersion;
+        _company = company;
+        _sheetNames = sheetNames;
     }
 
-    public ExtendedPropertiesWriterContext Context { get; }
+    public override string ZipPackagePath => "docProps/app.xml";
 
-    protected override async Task WriteRootElementAsync(CancellationToken cancellationToken)
+    protected override async Task WriteRootElementAsync(XmlWriter writer, CancellationToken cancellationToken)
     {
-        await using (CreateElementScope("Properties", "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"))
+        await using (CreateElementScope(writer, "Properties", "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"))
         {
-            WriteAttributeString("xmlns", "vt", null, Namespaces.vt);
+            WriteAttributeString(writer, "xmlns", "vt", null, Namespaces.vt);
 
-            WriteElementString("Application", Context.Application);
-            WriteElementString("DocSecurity", "0");
-            WriteElementString("ScaleCrop", "false");
+            WriteElementString(writer, "Application", _application);
+            WriteElementString(writer, "DocSecurity", "0");
+            WriteElementString(writer, "ScaleCrop", "false");
 
-            await using (CreateElementScope("HeadingPairs"))
+            await using (CreateElementScope(writer, "HeadingPairs"))
             {
-                await using (CreateElementScope("vt", "vector", Namespaces.vt))
+                await using (CreateElementScope(writer, "vt", "vector", Namespaces.vt))
                 {
-                    WriteAttributeString("size", "2");
-                    WriteAttributeString("baseType", "variant");
+                    WriteAttributeString(writer, "size", "2");
+                    WriteAttributeString(writer, "baseType", "variant");
 
-                    await using (CreateElementScope("vt", "variant", Namespaces.vt))
+                    await using (CreateElementScope(writer, "vt", "variant", Namespaces.vt))
                     {
-                        await WriteElementStringAsync("vt", "lpstr", Namespaces.vt, "Worksheets");
+                        await WriteElementStringAsync(writer, "vt", "lpstr", Namespaces.vt, "Worksheets");
                     }
 
-                    await using (CreateElementScope("vt", "variant", Namespaces.vt))
+                    await using (CreateElementScope(writer, "vt", "variant", Namespaces.vt))
                     {
-                        await WriteElementStringAsync("vt", "i4", Namespaces.vt, $"{Context.SheetNames.Count}");
+                        await WriteElementStringAsync(writer, "vt", "i4", Namespaces.vt, $"{_sheetNames.Count}");
                     }
                 }
             }
 
-            await using (CreateElementScope("TitlesOfParts"))
+            await using (CreateElementScope(writer, "TitlesOfParts"))
             {
-                await using (CreateElementScope("vt", "vector", Namespaces.vt))
+                await using (CreateElementScope(writer, "vt", "vector", Namespaces.vt))
                 {
-                    WriteAttributeString("size", $"{Context.SheetNames.Count}");
-                    WriteAttributeString("baseType", "lpstr");
+                    WriteAttributeString(writer, "size", $"{_sheetNames.Count}");
+                    WriteAttributeString(writer, "baseType", "lpstr");
 
-                    foreach (var sheetName in Context.SheetNames)
+                    foreach (var sheetName in _sheetNames)
                     {
-                        await WriteElementStringAsync("vt", "lpstr", Namespaces.vt, sheetName);
+                        await WriteElementStringAsync(writer, "vt", "lpstr", Namespaces.vt, sheetName);
                     }
                 }
             }
 
-            WriteElementString("Company", Context.Company);
-            WriteElementString("LinksUpToDate", "false");
-            WriteElementString("SharedDoc", "false");
-            WriteElementString("HyperlinksChanged", "false");
-            WriteElementString("AppVersion", Context.AppVersion);
+            WriteElementString(writer, "Company", _company);
+            WriteElementString(writer, "LinksUpToDate", "false");
+            WriteElementString(writer, "SharedDoc", "false");
+            WriteElementString(writer, "HyperlinksChanged", "false");
+            WriteElementString(writer, "AppVersion", _appVersion);
         }
     }
 

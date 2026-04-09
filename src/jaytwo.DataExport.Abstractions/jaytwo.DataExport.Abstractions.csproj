@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net8.0;net6.0;netstandard2.1</TargetFrameworks>
     <VersionPrefix>0.1.0</VersionPrefix>
@@ -9,17 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="jaytwo.DataExport.Excel.Tests" />
-    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
     <None Include="..\..\README.md" Pack="true" PackagePath="" Link="README.md" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\jaytwo.DataExport.Abstractions\jaytwo.DataExport.Abstractions.csproj" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="jaytwo.HashSiphon" Version="0.1.0-beta-20250512175120" />
-    <PackageReference Include="Crc32.NET" Version="1.2.0" />
   </ItemGroup>
 </Project>
